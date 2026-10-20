@@ -1,15 +1,539 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Projeto</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dino Rush — Power Run</title>
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    color: #ecf5ff;
+    font-family: system-ui, sans-serif;
+    background: radial-gradient(circle at top, #193a62, #08111f 70%);
+  }
+
+  .game {
+    width: min(850px, 100%);
+    padding: 20px;
+    border: 1px solid #315477;
+    border-radius: 22px;
+    background: #101e31;
+    box-shadow: 0 20px 60px #0006;
+  }
+
+  header, .stats, .controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  h1 { margin: 0; font-size: 27px; }
+  h1 span { color: #52e0c0; }
+  .muted { color: #a9bdd3; font-size: 13px; }
+
+  .stats { margin: 20px 0 12px; }
+
+  .stat {
+    flex: 1;
+    min-width: 100px;
+    padding: 12px;
+    border-radius: 12px;
+    background: #1b2d45;
+  }
+
+  .stat small { display: block; color: #a9bdd3; }
+  .stat strong { font-size: 21px; }
+
+  .arena {
+    position: relative;
+    overflow: hidden;
+    border-radius: 14px;
+    background: linear-gradient(#132944, #244b62);
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .controls { margin-top: 16px; }
+
+  button {
+    border: 0;
+    border-radius: 10px;
+    padding: 12px 17px;
+    color: #081522;
+    background: #52e0c0;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  button:hover { filter: brightness(1.1); }
+
+  button.secondary {
+    color: #ecf5ff;
+    background: #263b55;
+  }
+
+  .help {
+    margin: 15px 0 0;
+    color: #a9bdd3;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+</style>
 </head>
 <body>
-    <h1>Meu Projeto da Disciplina</h1>
+<main class="game">
+  <header>
+    <div>
+      <h1>🦖 Dino <span>Rush</span></h1>
+      <div class="muted">POWER RUN · PROTÓTIPO 0.1</div>
+    </div>
+    <button class="secondary" id="soundBtn">🔊 Som ligado</button>
+  </header>
 
-    <p>Aluno: SEU NOME</p>
-    <p>Disciplina: Administração de Sistemas Proprietários</p>
-    <p>Tema: HTTP</p>
+  <section class="stats">
+    <div class="stat"><small>PONTUAÇÃO</small><strong id="score">0</strong></div>
+    <div class="stat"><small>RECORDE</small><strong id="best">0</strong></div>
+    <div class="stat"><small>ESCUDO</small><strong id="shield">Pronto</strong></div>
+  </section>
+
+  <div class="arena">
+    <canvas id="gameCanvas" width="800" height="320"
+      aria-label="Jogo Dino Rush"></canvas>
+  </div>
+
+  <div class="controls">
+    <div>
+      <strong id="status">Pronto para correr?</strong>
+      <div class="muted" id="message">Pule, colete cristais e sobreviva!</div>
+    </div>
+    <button id="startBtn">▶ Jogar</button>
+  </div>
+
+  <p class="help">
+    ESPAÇO / ↑ Pular · ↓ Descer mais rápido · E Ativar escudo ·
+    Cristais valem pontos extras.
+  </p>
+</main>
+
+<script>
+const canvas = document.querySelector("#gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const scoreEl = document.querySelector("#score");
+const bestEl = document.querySelector("#best");
+const shieldEl = document.querySelector("#shield");
+const statusEl = document.querySelector("#status");
+const messageEl = document.querySelector("#message");
+const startBtn = document.querySelector("#startBtn");
+const soundBtn = document.querySelector("#soundBtn");
+
+const W = canvas.width;
+const H = canvas.height;
+const groundY = 265;
+
+let running = false;
+let started = false;
+let gameOver = false;
+let score = 0;
+let speed = 6;
+let obstacles = [];
+let crystals = [];
+let particles = [];
+let spawnTimer = 0;
+let crystalTimer = 0;
+let lastTime = 0;
+let soundOn = true;
+let audioCtx = null;
+let best = 0;
+
+try {
+  best = Number(localStorage.getItem("dinoRushBest")) || 0;
+} catch {}
+bestEl.textContent = best;
+
+const dino = {
+  x: 95, y: groundY - 46, w: 42, h: 46,
+  vy: 0, grounded: true,
+  shieldUntil: 0
+};
+
+function beep(freq = 440, duration = 0.09, type = "sine") {
+  if (!soundOn) return;
+  try {
+    audioCtx ||= new (window.AudioContext ||
+                      window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.07, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(
+      0.001, audioCtx.currentTime + duration
+    );
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  } catch {}
+}
+
+function resetGame() {
+  score = 0;
+  speed = 6;
+  obstacles = [];
+  crystals = [];
+  particles = [];
+  spawnTimer = 55;
+  crystalTimer = 100;
+  dino.y = groundY - dino.h;
+  dino.vy = 0;
+  dino.grounded = true;
+  dino.shieldUntil = 0;
+  gameOver = false;
+  started = true;
+  running = true;
+  lastTime = 0;
+  scoreEl.textContent = "0";
+  shieldEl.textContent = "Pronto";
+  statusEl.textContent = "Correndo!";
+  messageEl.textContent = "Pule os obstáculos e pegue cristais.";
+  startBtn.textContent = "↻ Reiniciar";
+}
+
+function jump() {
+  if (!running) {
+    if (!started || gameOver) resetGame();
+    return;
+  }
+
+  if (dino.grounded) {
+    dino.vy = -12.8;
+    dino.grounded = false;
+    beep(360, 0.1);
+  }
+}
+
+function activateShield() {
+  if (!running) return;
+  if (performance.now() < dino.shieldUntil) return;
+  dino.shieldUntil = performance.now() + 3000;
+  shieldEl.textContent = "Ativo!";
+  beep(700, 0.2, "triangle");
+  for (let i = 0; i < 12; i++) {
+    particles.push({
+      x: dino.x + 20, y: dino.y + 20,
+      vx: (Math.random() - 0.5) * 5,
+      vy: (Math.random() - 0.5) * 5,
+      life: 35, color: "#52e0ff"
+    });
+  }
+}
+
+function spawnObstacle() {
+  const tall = Math.random() > 0.5;
+  obstacles.push({
+    x: W + 20,
+    w: tall ? 23 : 34,
+    h: tall ? 43 : 28
+  });
+}
+
+function spawnCrystal() {
+  crystals.push({
+    x: W + 20,
+    y: groundY - 65 - Math.random() * 65,
+    size: 12
+  });
+}
+
+function overlap(a, b) {
+  return a.x < b.x + b.w &&
+         a.x + a.w > b.x &&
+         a.y < b.y + b.h &&
+         a.y + a.h > b.y;
+}
+
+function endGame() {
+  if (!running) return;
+  running = false;
+  gameOver = true;
+  statusEl.textContent = "Fim de jogo!";
+  messageEl.textContent = "Sua pontuação: " + Math.floor(score);
+  startBtn.textContent = "↻ Jogar novamente";
+  beep(150, 0.3, "sawtooth");
+
+  if (score > best) {
+    best = Math.floor(score);
+    bestEl.textContent = best;
+    try { localStorage.setItem("dinoRushBest", best); } catch {}
+  }
+}
+
+function update(dt) {
+  if (!running) return;
+
+  score += dt * 0.01 * 10;
+  speed = Math.min(12, 6 + score / 350);
+  scoreEl.textContent = Math.floor(score);
+
+  dino.vy += 0.65 * dt;
+  dino.y += dino.vy * dt;
+
+  if (dino.y + dino.h >= groundY) {
+    dino.y = groundY - dino.h;
+    dino.vy = 0;
+    dino.grounded = true;
+  }
+
+  if (dino.y < 0) {
+    dino.y = 0;
+    dino.vy = Math.max(0, dino.vy);
+  }
+
+  const now = performance.now();
+  const shieldActive = now < dino.shieldUntil;
+  shieldEl.textContent = shieldActive
+    ? Math.ceil((dino.shieldUntil - now) / 1000) + "s"
+    : "Pronto";
+
+  spawnTimer -= dt;
+  if (spawnTimer <= 0) {
+    spawnObstacle();
+    spawnTimer = 65 + Math.random() * 55;
+  }
+
+  crystalTimer -= dt;
+  if (crystalTimer <= 0) {
+    spawnCrystal();
+    crystalTimer = 120 + Math.random() * 100;
+  }
+
+  const playerBox = {
+    x: dino.x + 6, y: dino.y + 5,
+    w: dino.w - 12, h: dino.h - 8
+  };
+
+  for (const o of obstacles) {
+    o.x -= speed * dt;
+    const obstacleBox = {
+      x: o.x + 3, y: groundY - o.h + 3,
+      w: o.w - 6, h: o.h - 3
+    };
+
+    if (overlap(playerBox, obstacleBox)) {
+      if (shieldActive) {
+        o.x = -100;
+        beep(620, 0.08);
+      } else {
+        endGame();
+        break;
+      }
+    }
+  }
+
+  obstacles = obstacles.filter(o => o.x + o.w > 0);
+
+  for (const c of crystals) {
+    c.x -= speed * dt;
+    const box = {
+      x: c.x - c.size, y: c.y - c.size,
+      w: c.size * 2, h: c.size * 2
+    };
+
+    if (!c.collected && overlap(playerBox, box)) {
+      c.collected = true;
+      score += 50;
+      beep(850, 0.12, "triangle");
+      for (let i = 0; i < 8; i++) {
+        particles.push({
+          x: c.x, y: c.y,
+          vx: (Math.random() - 0.5) * 5,
+          vy: (Math.random() - 0.5) * 5,
+          life: 25, color: "#ffd166"
+        });
+      }
+    }
+  }
+
+  crystals = crystals.filter(c => c.x > -30 && !c.collected);
+
+  for (const p of particles) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+  }
+  particles = particles.filter(p => p.life > 0);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Céu e estrelas
+  ctx.fillStyle = "#142b46";
+  ctx.fillRect(0, 0, W, H);
+
+  for (let i = 0; i < 35; i++) {
+    const x = (i * 137 + 30) % W;
+    const y = (i * 61 + 20) % 180;
+    ctx.fillStyle = "#8eb5d0";
+    ctx.fillRect(x, y, 2, 2);
+  }
+
+  // Montanhas
+  ctx.fillStyle = "#1c4055";
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  for (let x = 0; x <= W; x += 80) {
+    ctx.lineTo(x, groundY - 30 - (x % 160) * 0.35);
+  }
+  ctx.lineTo(W, groundY);
+  ctx.fill();
+
+  // Chão
+  ctx.fillStyle = "#52e0c0";
+  ctx.fillRect(0, groundY, W, 3);
+  ctx.fillStyle = "#29475c";
+  ctx.fillRect(0, groundY + 3, W, H - groundY);
+
+  const offset = running ? (score * 3) % 45 : 0;
+  ctx.fillStyle = "#7195a6";
+  for (let x = -45; x < W; x += 45) {
+    ctx.fillRect(x - offset, groundY + 20, 19, 2);
+  }
+
+  // Cristais
+  for (const c of crystals) {
+    ctx.fillStyle = "#ffd166";
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y - 12);
+    ctx.lineTo(c.x + 9, c.y);
+    ctx.lineTo(c.x, c.y + 12);
+    ctx.lineTo(c.x - 9, c.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#fff0ae";
+    ctx.fillRect(c.x - 2, c.y - 6, 3, 7);
+  }
+
+  // Obstáculos
+  for (const o of obstacles) {
+    ctx.fillStyle = "#f08b65";
+    ctx.fillRect(o.x + 7, groundY - o.h, o.w - 14, o.h);
+    ctx.fillRect(o.x, groundY - o.h + 14, 9, 8);
+    ctx.fillRect(o.x + o.w - 9, groundY - o.h + 23, 9, 8);
+  }
+
+  // Dino
+  ctx.save();
+  ctx.translate(dino.x, dino.y);
+  ctx.fillStyle = "#52e0c0";
+  ctx.fillRect(10, 15, 24, 26);
+  ctx.fillRect(23, 3, 21, 19);
+  ctx.fillRect(36, 13, 13, 7);
+  ctx.fillRect(0, 20, 13, 8);
+  ctx.fillRect(15, 37, 8, 9);
+  ctx.fillRect(29, 37, 8, 9);
+
+  ctx.fillStyle = "#102239";
+  ctx.fillRect(36, 7, 4, 4);
+  ctx.restore();
+
+  // Escudo visual
+  if (performance.now() < dino.shieldUntil) {
+    ctx.strokeStyle = "#52e0ff";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(
+      dino.x + dino.w / 2, dino.y + dino.h / 2,
+      34, 32, 0, 0, Math.PI * 2
+    );
+    ctx.stroke();
+  }
+
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life / 35);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+
+  if (!running) {
+    ctx.fillStyle = "#07111dcc";
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 30px system-ui";
+    ctx.fillText(
+      gameOver ? "FIM DE JOGO" : "DINO RUSH",
+      W / 2, 130
+    );
+    ctx.fillStyle = "#52e0c0";
+    ctx.font = "17px system-ui";
+    ctx.fillText(
+      gameOver ? "Tente bater seu recorde!" : "Sua aventura começa agora",
+      W / 2, 166
+    );
+    ctx.fillStyle = "#d3e4f4";
+    ctx.font = "14px system-ui";
+    ctx.fillText("Clique em Jogar para começar", W / 2, 198);
+  }
+}
+
+function loop(time) {
+  const dt = lastTime
+    ? Math.min((time - lastTime) / 16.667, 2)
+    : 1;
+  lastTime = time;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+startBtn.addEventListener("click", () => {
+  if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  resetGame();
+});
+
+soundBtn.addEventListener("click", () => {
+  soundOn = !soundOn;
+  soundBtn.textContent = soundOn ? "🔊 Som ligado" : "🔇 Som desligado";
+  if (soundOn) beep(500);
+});
+
+document.addEventListener("keydown", e => {
+  if (["Space", "ArrowUp", "ArrowDown"].includes(e.code)) {
+    e.preventDefault();
+  }
+
+  if (e.repeat) return;
+
+  if (e.code === "Space" || e.code === "ArrowUp") jump();
+  if (e.code === "ArrowDown" && running && !dino.grounded) {
+    dino.vy += 5;
+  }
+  if (e.code === "KeyE") activateShield();
+});
+
+canvas.addEventListener("pointerdown", () => {
+  if (running) jump();
+});
+
+draw();
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>
