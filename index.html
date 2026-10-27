@@ -1,1 +1,1241 @@
 
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dino Rush — Boss Run</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #101820;
+    color: white;
+    text-align: center;
+}
+
+header {
+    padding: 16px;
+    background: #172b36;
+}
+
+h1 {
+    margin: 5px;
+    color: #71e58a;
+}
+
+main {
+    max-width: 950px;
+    margin: auto;
+    padding: 12px;
+}
+
+canvas {
+    width: 100%;
+    display: block;
+    background: #d9f3ff;
+    border: 3px solid #71e58a;
+    border-radius: 10px;
+}
+
+.hud {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.panel {
+    background: #203440;
+    padding: 10px;
+    border-radius: 8px;
+    min-width: 130px;
+}
+
+.bar {
+    height: 15px;
+    width: 180px;
+    max-width: 100%;
+    background: #454545;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 5px auto;
+}
+
+.fill {
+    height: 100%;
+    width: 100%;
+    transition: width 0.1s;
+}
+
+.green { background: #42df69; }
+.red { background: #ff4545; }
+.purple { background: #b25cff; }
+
+button {
+    background: #71e58a;
+    color: #10251a;
+    border: none;
+    border-radius: 7px;
+    padding: 11px 15px;
+    margin: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #a0ffb1;
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+#shop {
+    background: #203440;
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 12px;
+}
+
+#message {
+    min-height: 25px;
+    color: #ffe37c;
+    font-weight: bold;
+}
+
+.instructions {
+    color: #d4e2e8;
+    line-height: 1.7;
+    font-size: 14px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>🦖 DINO RUSH — BOSS RUN</h1>
+    <p>Corra, sobreviva, derrote o chefe e conquiste recompensas!</p>
+</header>
+
+<main>
+
+    <div class="hud">
+        <div class="panel">
+            <div>Pontuação</div>
+            <strong id="score">0</strong>
+        </div>
+
+        <div class="panel">
+            <div>Moedas 🪙</div>
+            <strong id="coins">0</strong>
+        </div>
+
+        <div class="panel">
+            <div>Mapa</div>
+            <strong id="biome">Floresta</strong>
+        </div>
+
+        <div class="panel">
+            <div>Arma</div>
+            <strong id="weapon">Nenhuma</strong>
+        </div>
+    </div>
+
+    <section id="bossPanel" class="panel" style="display:none">
+        <strong>👹 VIDA DO CHEFE</strong>
+        <div class="bar">
+            <div id="bossHealthFill" class="fill purple"></div>
+        </div>
+        <span id="bossHealthText">100 / 100</span>
+
+        <br><br>
+
+        <strong>🦖 VIDA DO DINOSSAURO</strong>
+        <div class="bar">
+            <div id="playerHealthFill" class="fill green"></div>
+        </div>
+        <span id="playerHealthText">100 / 100</span>
+    </section>
+
+    <canvas id="game" width="900" height="420"></canvas>
+
+    <div id="message">Clique em Iniciar jogo para começar!</div>
+
+    <div>
+        <button id="startBtn">▶ Iniciar jogo</button>
+        <button id="jumpBtn">⬆ Pular</button>
+        <button id="shootBtn">🔫 Atirar</button>
+        <button id="shieldBtn">🛡 Usar escudo</button>
+        <button id="restartBtn">↻ Reiniciar</button>
+    </div>
+
+    <section id="shop">
+        <h2>🛒 Loja de recompensas</h2>
+        <p>Use suas moedas para comprar melhorias.</p>
+
+        <button id="buyWeapon">
+            🔫 Comprar arma — 10 moedas
+        </button>
+
+        <button id="buyShield">
+            🛡 Comprar escudo — 8 moedas
+        </button>
+
+        <button id="buyHealth">
+            ❤️ Recuperar vida — 6 moedas
+        </button>
+
+        <button id="buyUpgrade">
+            ⚡ Melhorar arma — 15 moedas
+        </button>
+    </section>
+
+    <p class="instructions">
+        <strong>Controles:</strong><br>
+        Espaço ou ↑ = pular<br>
+        ↓ = abaixar durante a corrida<br>
+        X = atirar<br>
+        S = usar escudo<br>
+        Durante o chefe, pule e desvie dos ataques!
+    </p>
+
+</main>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const $ = id => document.getElementById(id);
+
+const WIDTH = canvas.width;
+const HEIGHT = canvas.height;
+const GROUND = 350;
+
+const PLAYER_MAX_HP = 100;
+
+let running = false;
+let gameOver = false;
+let bossMode = false;
+
+let score = 0;
+let coins = 0;
+let speed = 5;
+let frame = 0;
+let lastTime = 0;
+let spawnTimer = 0;
+let bossAttackTimer = 0;
+let bossIntro = false;
+
+let playerHp = PLAYER_MAX_HP;
+let playerHitUntil = 0;
+
+let weaponLevel = 0;
+let hasWeapon = false;
+let shieldCharges = 0;
+let shieldUntil = 0;
+
+let obstacles = [];
+let projectiles = [];
+let enemyProjectiles = [];
+let particles = [];
+
+let boss = null;
+
+const player = {
+    x: 100,
+    y: GROUND - 54,
+    w: 42,
+    h: 54,
+    vy: 0,
+    onGround: true,
+    ducking: false
+};
+
+const biomes = [
+    {
+        name: "Floresta",
+        sky: "#d9f3ff",
+        ground: "#568b45",
+        hill: "#a5d58b",
+        groundLine: "#315e2b"
+    },
+    {
+        name: "Deserto",
+        sky: "#ffdca0",
+        ground: "#d6a052",
+        hill: "#f0c477",
+        groundLine: "#96602d"
+    },
+    {
+        name: "Neve",
+        sky: "#dcecff",
+        ground: "#f4f7ff",
+        hill: "#b9d8f2",
+        groundLine: "#8eabc9"
+    },
+    {
+        name: "Vulcão",
+        sky: "#482f46",
+        ground: "#39313b",
+        hill: "#8d4c42",
+        groundLine: "#ff713d"
+    }
+];
+
+let currentBiome = biomes[0];
+
+function setMessage(text) {
+    $("message").textContent = text;
+}
+
+function updateHUD() {
+    $("score").textContent = Math.floor(score);
+    $("coins").textContent = coins;
+    $("biome").textContent = currentBiome.name;
+
+    $("weapon").textContent = hasWeapon
+        ? "Nível " + weaponLevel
+        : "Nenhuma";
+
+    $("bossPanel").style.display =
+        bossMode && boss ? "block" : "none";
+
+    if (boss) {
+        $("bossHealthFill").style.width =
+            Math.max(0, boss.hp / boss.maxHp * 100) + "%";
+
+        $("bossHealthText").textContent =
+            Math.ceil(boss.hp) + " / " + boss.maxHp;
+    }
+
+    $("playerHealthFill").style.width =
+        Math.max(0, playerHp / PLAYER_MAX_HP * 100) + "%";
+
+    $("playerHealthText").textContent =
+        Math.ceil(playerHp) + " / " + PLAYER_MAX_HP;
+}
+
+function resetGame() {
+    running = false;
+    gameOver = false;
+    bossMode = false;
+    bossIntro = false;
+
+    score = 0;
+    speed = 5;
+    frame = 0;
+    lastTime = 0;
+    spawnTimer = 0;
+    bossAttackTimer = 0;
+
+    playerHp = PLAYER_MAX_HP;
+    playerHitUntil = 0;
+
+    weaponLevel = 0;
+    hasWeapon = false;
+    shieldCharges = 0;
+    shieldUntil = 0;
+
+    obstacles = [];
+    projectiles = [];
+    enemyProjectiles = [];
+    particles = [];
+    boss = null;
+
+    player.x = 100;
+    player.y = GROUND - player.h;
+    player.vy = 0;
+    player.onGround = true;
+    player.ducking = false;
+
+    currentBiome = biomes[0];
+
+    $("startBtn").disabled = false;
+    $("startBtn").textContent = "▶ Iniciar jogo";
+
+    setMessage("Pronto! Clique em Iniciar jogo.");
+    updateHUD();
+    draw();
+}
+
+function startGame() {
+    if (gameOver) {
+        resetGame();
+    }
+
+    if (running) return;
+
+    running = true;
+    lastTime = 0;
+
+    $("startBtn").disabled = true;
+    setMessage("Corra e desvie dos obstáculos!");
+
+    requestAnimationFrame(loop);
+}
+
+function jump() {
+    if (!running || gameOver) return;
+
+    if (player.onGround) {
+        player.vy = bossMode ? -13 : -14;
+        player.onGround = false;
+        player.ducking = false;
+    }
+}
+
+function shoot() {
+    if (!running || gameOver) return;
+
+    if (!hasWeapon) {
+        setMessage("Compre uma arma na loja primeiro!");
+        return;
+    }
+
+    const damage = 12 + weaponLevel * 8;
+
+    projectiles.push({
+        x: player.x + player.w,
+        y: player.y + 24,
+        w: 16,
+        h: 7,
+        vx: 10,
+        damage: damage
+    });
+}
+
+function useShield() {
+    if (!running || gameOver) return;
+
+    if (shieldCharges <= 0) {
+        setMessage("Você não tem escudos! Compre um na loja.");
+        return;
+    }
+
+    shieldCharges--;
+    shieldUntil = performance.now() + 3500;
+
+    setMessage("Escudo ativado por 3,5 segundos!");
+}
+
+function damagePlayer(amount) {
+    const now = performance.now();
+
+    if (now < shieldUntil) {
+        return;
+    }
+
+    if (now < playerHitUntil) {
+        return;
+    }
+
+    playerHp -= amount;
+    playerHitUntil = now + 1100;
+
+    if (playerHp <= 0) {
+        playerHp = 0;
+        endGame(false);
+    }
+
+    updateHUD();
+}
+
+function startBoss() {
+    bossMode = true;
+    bossIntro = true;
+
+    obstacles = [];
+    enemyProjectiles = [];
+    projectiles = [];
+
+    boss = {
+        x: 650,
+        y: 170,
+        w: 150,
+        h: 140,
+        hp: 100,
+        maxHp: 100,
+        direction: 1,
+        phase: 1
+    };
+
+    playerHp = PLAYER_MAX_HP;
+    bossAttackTimer = 82;
+
+    $("bossPanel").style.display = "block";
+
+    setMessage("⚠️ O CHEFE APARECEU! Desvie e ataque!");
+
+    updateHUD();
+}
+
+function endGame(victory) {
+    running = false;
+    gameOver = true;
+
+    $("startBtn").disabled = false;
+    $("startBtn").textContent = "▶ Jogar novamente";
+
+    if (victory) {
+        setMessage("🏆 VITÓRIA! Você derrotou o chefe!");
+    } else {
+        setMessage("💥 Fim de jogo! Pontuação: " + Math.floor(score));
+    }
+
+    draw();
+}
+
+function buyItem(item) {
+    if (running && bossMode) {
+        setMessage("A loja fica disponível fora da batalha!");
+        return;
+    }
+
+    if (item === "weapon") {
+        if (coins < 10) {
+            setMessage("Você precisa de 10 moedas para comprar uma arma.");
+            return;
+        }
+
+        coins -= 10;
+        hasWeapon = true;
+        weaponLevel = Math.max(weaponLevel, 1);
+
+        setMessage("Arma comprada! Use X ou o botão Atirar.");
+    }
+
+    if (item === "shield") {
+        if (coins < 8) {
+            setMessage("Você precisa de 8 moedas para comprar um escudo.");
+            return;
+        }
+
+        coins -= 8;
+        shieldCharges++;
+
+        setMessage("Escudo comprado!");
+    }
+
+    if (item === "health") {
+        if (coins < 6) {
+            setMessage("Você precisa de 6 moedas para recuperar vida.");
+            return;
+        }
+
+        if (playerHp >= PLAYER_MAX_HP) {
+            setMessage("Sua vida já está cheia!");
+            return;
+        }
+
+        coins -= 6;
+        playerHp = Math.min(PLAYER_MAX_HP, playerHp + 35);
+
+        setMessage("Você recuperou 35 pontos de vida!");
+    }
+
+    if (item === "upgrade") {
+        if (!hasWeapon) {
+            setMessage("Compre uma arma antes de melhorá-la.");
+            return;
+        }
+
+        if (coins < 15) {
+            setMessage("Você precisa de 15 moedas para melhorar a arma.");
+            return;
+        }
+
+        coins -= 15;
+        weaponLevel++;
+
+        setMessage("Arma melhorada para o nível " + weaponLevel + "!");
+    }
+
+    updateHUD();
+}
+
+function spawnObstacle() {
+    const types = ["cactus", "rock", "raptor", "ptero"];
+    const type = types[Math.floor(Math.random() * types.length)];
+
+    let obstacle = {
+        type,
+        x: WIDTH + 30,
+        y: GROUND - 40,
+        w: 35,
+        h: 40,
+        passed: false
+    };
+
+    if (type === "cactus") {
+        obstacle.w = 28;
+        obstacle.h = 48;
+        obstacle.y = GROUND - obstacle.h;
+    }
+
+    if (type === "rock") {
+        obstacle.w = 42;
+        obstacle.h = 28;
+        obstacle.y = GROUND - obstacle.h;
+    }
+
+    if (type === "raptor") {
+        obstacle.w = 48;
+        obstacle.h = 42;
+        obstacle.y = GROUND - obstacle.h;
+    }
+
+    if (type === "ptero") {
+        obstacle.w = 48;
+        obstacle.h = 28;
+        obstacle.y = GROUND - 95 - Math.random() * 30;
+    }
+
+    obstacles.push(obstacle);
+}
+
+function rectsCollide(a, b) {
+    return a.x < b.x + b.w &&
+           a.x + a.w > b.x &&
+           a.y < b.y + b.h &&
+           a.y + a.h > b.y;
+}
+
+function update(dt) {
+    if (!running || gameOver) return;
+
+    const step = dt / 16.67;
+
+    frame += step;
+
+    if (!bossMode) {
+        score += 0.45 * step;
+        speed = Math.min(10, 5 + score / 500);
+
+        currentBiome = biomes[
+            Math.floor(score / 250) % biomes.length
+        ];
+
+        if (score >= 1000) {
+            startBoss();
+        }
+
+        spawnTimer -= step;
+
+        if (spawnTimer <= 0 && !bossMode) {
+            spawnObstacle();
+            spawnTimer = 70 + Math.random() * 55;
+        }
+
+        obstacles.forEach(obstacle => {
+            obstacle.x -= speed * step;
+
+            if (!obstacle.passed &&
+                obstacle.x + obstacle.w < player.x) {
+                obstacle.passed = true;
+                coins++;
+            }
+        });
+
+        obstacles = obstacles.filter(
+            obstacle => obstacle.x + obstacle.w > -20
+        );
+
+    } else if (boss) {
+        boss.x += boss.direction * 1.3 * step;
+
+        if (boss.x > 690) boss.direction = -1;
+        if (boss.x < 570) boss.direction = 1;
+
+        bossAttackTimer -= step;
+
+        if (bossAttackTimer <= 0) {
+            const attackType = Math.random();
+
+            if (attackType < 0.55) {
+                enemyProjectiles.push({
+                    x: boss.x,
+                    y: boss.y + 80,
+                    w: 22,
+                    h: 18,
+                    vx: -6.5,
+                    vy: Math.random() * 2 - 1
+                });
+            } else {
+                enemyProjectiles.push({
+                    x: boss.x,
+                    y: GROUND - 24,
+                    w: 32,
+                    h: 24,
+                    vx: -7.5,
+                    vy: 0
+                });
+            }
+
+            bossAttackTimer = 82 + Math.random() * 30;
+        }
+
+        if (boss.hp <= 0) {
+            coins += 30;
+            endGame(true);
+            return;
+        }
+    }
+
+    // Física do dinossauro funciona tanto na corrida quanto no chefe.
+    player.vy += 0.65 * step;
+    player.y += player.vy * step;
+
+    if (player.y + player.h >= GROUND) {
+        player.y = GROUND - player.h;
+        player.vy = 0;
+        player.onGround = true;
+    }
+
+    // Projéteis do jogador.
+    projectiles.forEach(bullet => {
+        bullet.x += bullet.vx * step;
+
+        if (bossMode && boss && rectsCollide(bullet, boss)) {
+            boss.hp -= bullet.damage;
+            bullet.hit = true;
+
+            if (boss.hp < 0) boss.hp = 0;
+        }
+    });
+
+    projectiles = projectiles.filter(
+        bullet => bullet.x < WIDTH + 30 && !bullet.hit
+    );
+
+    // Ataques do chefe.
+    enemyProjectiles.forEach(bullet => {
+        bullet.x += bullet.vx * step;
+        bullet.y += bullet.vy * step;
+
+        const playerBox = {
+            x: player.x + 5,
+            y: player.y + 5,
+            w: player.w - 10,
+            h: player.h - 10
+        };
+
+        if (rectsCollide(bullet, playerBox)) {
+            damagePlayer(18);
+            bullet.hit = true;
+        }
+    });
+
+    enemyProjectiles = enemyProjectiles.filter(
+        bullet => bullet.x + bullet.w > -10 && !bullet.hit
+    );
+
+    // Colisões com obstáculos.
+    if (!bossMode) {
+        const playerBox = {
+            x: player.x + 6,
+            y: player.y + 5,
+            w: player.w - 12,
+            h: player.h - 10
+        };
+
+        for (const obstacle of obstacles) {
+            if (rectsCollide(playerBox, obstacle)) {
+                endGame(false);
+                return;
+            }
+        }
+    }
+
+    // Partículas decorativas.
+    particles.forEach(particle => {
+        particle.x += particle.vx * step;
+        particle.y += particle.vy * step;
+        particle.life -= step;
+    });
+
+    particles = particles.filter(p => p.life > 0);
+
+    updateHUD();
+}
+
+function drawBackground() {
+    ctx.fillStyle = currentBiome.sky;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    ctx.fillStyle = currentBiome.hill;
+
+    for (let i = 0; i < 6; i++) {
+        const x = ((i * 190 - frame * 0.7) % (WIDTH + 190));
+
+        ctx.beginPath();
+        ctx.ellipse(
+            x,
+            GROUND + 5,
+            120,
+            85,
+            0,
+            Math.PI,
+            Math.PI * 2
+        );
+        ctx.fill();
+    }
+
+    ctx.fillStyle = currentBiome.ground;
+    ctx.fillRect(0, GROUND, WIDTH, HEIGHT - GROUND);
+
+    ctx.fillStyle = currentBiome.groundLine;
+    ctx.fillRect(0, GROUND, WIDTH, 5);
+
+    // Marcas no chão em movimento.
+    ctx.strokeStyle = "rgba(0,0,0,0.12)";
+    ctx.lineWidth = 2;
+
+    for (let i = 0; i < 18; i++) {
+        let x = (i * 65 - frame * speed * 2) % WIDTH;
+        if (x < 0) x += WIDTH;
+
+        ctx.beginPath();
+        ctx.moveTo(x, GROUND + 25);
+        ctx.lineTo(x + 20, GROUND + 25);
+        ctx.stroke();
+    }
+
+    if (currentBiome.name === "Vulcão") {
+        ctx.fillStyle = "#ff8c42";
+
+        for (let i = 0; i < 8; i++) {
+            let x = (i * 130 - frame * 1.2) % WIDTH;
+            if (x < 0) x += WIDTH;
+
+            ctx.beginPath();
+            ctx.arc(x, 65 + (i % 3) * 30, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    if (currentBiome.name === "Neve") {
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+
+        for (let i = 0; i < 20; i++) {
+            let x = (i * 53 - frame * 1.5) % WIDTH;
+            if (x < 0) x += WIDTH;
+
+            let y = (i * 37 + frame * 0.7) % GROUND;
+
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+function drawPlayer() {
+    const blinking =
+        performance.now() < playerHitUntil &&
+        Math.floor(performance.now() / 100) % 2 === 0;
+
+    if (blinking) return;
+
+    const x = player.x;
+    const y = player.y;
+
+    // Cauda.
+    ctx.fillStyle = "#278447";
+    ctx.beginPath();
+    ctx.moveTo(x + 5, y + 35);
+    ctx.lineTo(x - 13, y + 43);
+    ctx.lineTo(x + 7, y + 47);
+    ctx.fill();
+
+    // Corpo.
+    ctx.fillStyle = "#39b95e";
+    ctx.fillRect(x + 5, y + 22, 29, 25);
+
+    // Cabeça.
+    ctx.fillRect(x + 18, y + 5, 26, 22);
+
+    // Focinho.
+    ctx.fillRect(x + 33, y + 15, 14, 10);
+
+    // Olho.
+    ctx.fillStyle = "white";
+    ctx.fillRect(x + 34, y + 8, 7, 7);
+
+    ctx.fillStyle = "#111";
+    ctx.fillRect(x + 38, y + 10, 3, 4);
+
+    // Pernas.
+    ctx.fillStyle = "#20743c";
+
+    if (player.onGround && running && !bossMode) {
+        const legMove = Math.sin(frame * 0.5) * 5;
+
+        ctx.fillRect(x + 9, y + 43, 8, 11 + legMove);
+        ctx.fillRect(x + 25, y + 43, 8, 11 - legMove);
+    } else {
+        ctx.fillRect(x + 9, y + 43, 8, 11);
+        ctx.fillRect(x + 25, y + 43, 8, 11);
+    }
+
+    // Escudo visual.
+    if (performance.now() < shieldUntil) {
+        ctx.strokeStyle = "#5de5ff";
+        ctx.lineWidth = 4;
+
+        ctx.beginPath();
+        ctx.ellipse(
+            x + 22,
+            y + 28,
+            35,
+            40,
+            0,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.stroke();
+    }
+}
+
+function drawObstacle(obstacle) {
+    const { x, y, w, h, type } = obstacle;
+
+    if (type === "cactus") {
+        ctx.fillStyle = "#267f3b";
+        ctx.fillRect(x + w * 0.3, y, w * 0.4, h);
+        ctx.fillRect(x, y + h * 0.35, w * 0.35, 8);
+        ctx.fillRect(x, y + h * 0.2, 7, h * 0.3);
+        ctx.fillRect(x + w * 0.65, y + h * 0.5, w * 0.35, 8);
+        ctx.fillRect(x + w * 0.65, y + h * 0.35, 7, h * 0.3);
+    }
+
+    if (type === "rock") {
+        ctx.fillStyle = "#747b83";
+
+        ctx.beginPath();
+        ctx.moveTo(x, y + h);
+        ctx.lineTo(x + 5, y + h * 0.35);
+        ctx.lineTo(x + w * 0.35, y);
+        ctx.lineTo(x + w * 0.75, y + 5);
+        ctx.lineTo(x + w, y + h);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    if (type === "raptor") {
+        ctx.fillStyle = "#c85b36";
+        ctx.fillRect(x + 5, y + 15, 34, 22);
+        ctx.fillRect(x + 27, y + 4, 20, 15);
+        ctx.fillRect(x + 42, y + 12, 11, 7);
+
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(x + 38, y + 7, 5, 5);
+
+        ctx.fillStyle = "#73311f";
+        ctx.fillRect(x + 10, y + 34, 7, 8);
+        ctx.fillRect(x + 30, y + 34, 7, 8);
+
+        ctx.beginPath();
+        ctx.moveTo(x + 5, y + 20);
+        ctx.lineTo(x - 9, y + 13);
+        ctx.lineTo(x + 8, y + 29);
+        ctx.fill();
+    }
+
+    if (type === "ptero") {
+        ctx.fillStyle = "#754bb7";
+
+        ctx.beginPath();
+        ctx.moveTo(x + 20, y + 12);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + 8, y + 18);
+        ctx.lineTo(x + 20, y + 15);
+        ctx.lineTo(x + 40, y + 28);
+        ctx.lineTo(x + 31, y + 12);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillRect(x + 18, y + 8, 26, 8);
+
+        ctx.fillStyle = "#ffcf56";
+        ctx.fillRect(x + 39, y + 10, 9, 4);
+    }
+}
+
+function drawBoss() {
+    if (!boss) return;
+
+    const x = boss.x;
+    const y = boss.y;
+
+    // Chifres.
+    ctx.fillStyle = "#762e32";
+
+    ctx.beginPath();
+    ctx.moveTo(x + 25, y + 30);
+    ctx.lineTo(x + 8, y - 5);
+    ctx.lineTo(x + 42, y + 15);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(x + 105, y + 25);
+    ctx.lineTo(x + 130, y - 7);
+    ctx.lineTo(x + 125, y + 40);
+    ctx.fill();
+
+    // Corpo.
+    ctx.fillStyle = "#a93240";
+    ctx.fillRect(x + 10, y + 30, 120, 80);
+
+    // Cabeça.
+    ctx.fillStyle = "#c74650";
+    ctx.fillRect(x + 65, y + 5, 75, 55);
+    ctx.fillRect(x + 105, y + 38, 45, 25);
+
+    // Olhos.
+    ctx.fillStyle = "#fff";
+
+    ctx.fillRect(x + 82, y + 18, 17, 17);
+    ctx.fillRect(x + 119, y + 18, 17, 17);
+
+    ctx.fillStyle = "#ff2929";
+
+    ctx.fillRect(x + 91, y + 23, 7, 9);
+    ctx.fillRect(x + 128, y + 23, 7, 9);
+
+    // Boca.
+    ctx.fillStyle = "#38131b";
+    ctx.fillRect(x + 112, y + 48, 36, 12);
+
+    ctx.fillStyle = "#fff";
+
+    for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(x + 115 + i * 8, y + 48);
+        ctx.lineTo(x + 119 + i * 8, y + 56);
+        ctx.lineTo(x + 123 + i * 8, y + 48);
+        ctx.fill();
+    }
+
+    // Braços.
+    ctx.fillStyle = "#a93240";
+    ctx.fillRect(x - 5, y + 50, 25, 15);
+    ctx.fillRect(x + 100, y + 65, 25, 15);
+
+    // Pernas.
+    ctx.fillStyle = "#762e32";
+    ctx.fillRect(x + 28, y + 105, 30, 30);
+    ctx.fillRect(x + 85, y + 105, 30, 30);
+
+    // Espinhos.
+    ctx.fillStyle = "#6c2730";
+
+    for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.moveTo(x + 20 + i * 21, y + 30);
+        ctx.lineTo(x + 30 + i * 21, y + 5);
+        ctx.lineTo(x + 40 + i * 21, y + 30);
+        ctx.fill();
+    }
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 17px Arial";
+    ctx.fillText("CHEFE", x + 52, y - 12);
+}
+
+function drawProjectiles() {
+    projectiles.forEach(bullet => {
+        ctx.fillStyle = "#ffda47";
+        ctx.fillRect(bullet.x, bullet.y, bullet.w, bullet.h);
+
+        ctx.fillStyle = "#fff4b0";
+        ctx.fillRect(bullet.x + 3, bullet.y + 2, 7, 3);
+    });
+
+    enemyProjectiles.forEach(bullet => {
+        ctx.fillStyle = "#ff5a36";
+
+        ctx.beginPath();
+        ctx.arc(
+            bullet.x + bullet.w / 2,
+            bullet.y + bullet.h / 2,
+            bullet.w / 2,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
+
+        ctx.fillStyle = "#ffcf52";
+
+        ctx.beginPath();
+        ctx.arc(
+            bullet.x + bullet.w / 2,
+            bullet.y + bullet.h / 2,
+            bullet.w / 4,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
+    });
+}
+
+function draw() {
+    drawBackground();
+
+    obstacles.forEach(drawObstacle);
+
+    if (bossMode) {
+        drawBoss();
+    }
+
+    drawProjectiles();
+    drawPlayer();
+
+    if (!running && !gameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.font = "bold 34px Arial";
+        ctx.fillText("DINO RUSH", WIDTH / 2, 170);
+
+        ctx.font = "20px Arial";
+        ctx.fillText(
+            "Clique em Iniciar jogo para começar",
+            WIDTH / 2,
+            210
+        );
+
+        ctx.textAlign = "left";
+    }
+
+    if (gameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 38px Arial";
+
+        ctx.fillText(
+            boss && boss.hp <= 0 ? "VITÓRIA!" : "FIM DE JOGO",
+            WIDTH / 2,
+            180
+        );
+
+        ctx.font = "22px Arial";
+
+        ctx.fillText(
+            "Pontuação: " + Math.floor(score),
+            WIDTH / 2,
+            220
+        );
+
+        ctx.fillText(
+            "Clique em Reiniciar para jogar novamente",
+            WIDTH / 2,
+            260
+        );
+
+        ctx.textAlign = "left";
+    }
+}
+
+function loop(timestamp) {
+    if (!running) return;
+
+    if (!lastTime) lastTime = timestamp;
+
+    const dt = Math.min(timestamp - lastTime, 40);
+    lastTime = timestamp;
+
+    update(dt);
+    draw();
+
+    if (running) {
+        requestAnimationFrame(loop);
+    }
+}
+
+// Teclado.
+document.addEventListener("keydown", event => {
+    if (event.code === "Space" || event.code === "ArrowUp") {
+        event.preventDefault();
+        jump();
+    }
+
+    if (event.code === "ArrowDown") {
+        event.preventDefault();
+
+        if (running && !bossMode && player.onGround) {
+            player.ducking = true;
+            player.h = 35;
+            player.y = GROUND - player.h;
+        }
+    }
+
+    if (event.key.toLowerCase() === "x") {
+        shoot();
+    }
+
+    if (event.key.toLowerCase() === "s") {
+        useShield();
+    }
+});
+
+document.addEventListener("keyup", event => {
+    if (event.code === "ArrowDown") {
+        player.ducking = false;
+        player.h = 54;
+
+        if (player.y + player.h > GROUND) {
+            player.y = GROUND - player.h;
+        }
+    }
+});
+
+// Botões.
+$("startBtn").addEventListener("click", startGame);
+$("jumpBtn").addEventListener("click", jump);
+$("shootBtn").addEventListener("click", shoot);
+$("shieldBtn").addEventListener("click", useShield);
+$("restartBtn").addEventListener("click", () => {
+    resetGame();
+    startGame();
+});
+
+$("buyWeapon").addEventListener("click", () => buyItem("weapon"));
+$("buyShield").addEventListener("click", () => buyItem("shield"));
+$("buyHealth").addEventListener("click", () => buyItem("health"));
+$("buyUpgrade").addEventListener("click", () => buyItem("upgrade"));
+
+// Suporte para celulares: tocar na tela para pular.
+canvas.addEventListener("pointerdown", event => {
+    if (!running || gameOver) return;
+
+    if (event.clientX < canvas.getBoundingClientRect().left +
+        canvas.getBoundingClientRect().width * 0.55) {
+        jump();
+    } else {
+        shoot();
+    }
+});
+
+// Inicialização.
+resetGame();
+</script>
+
+</body>
+</html>
+
+
