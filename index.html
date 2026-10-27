@@ -381,6 +381,222 @@ function update(dt) {
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
+    const biome = Math.floor(score / 1000) % 4;
+
+const biomes = [
+  {
+    name: "DESERTO",
+    sky: "#142b46",
+    mountain: "#1c4055",
+    ground: "#29475c",
+    accent: "#52e0c0"
+  },
+  {
+    name: "SELVA PRÉ-HISTÓRICA",
+sky: "#123a38",
+    mountain: "#1b5745",
+    ground: "#24513b",
+    accent: "#83f28f"
+  },
+  {
+    name: "TERRAS CONGELADAS",
+    sky: "#263c65",
+    mountain: "#628ba9",
+    ground: "#b8d9e8",
+    accent: "#e5f8ff"
+  },
+  {
+    name: "ZONA VULCÂNICA",
+    sky: "#381e35",
+    mountain: "#652d36",
+    ground: "#302532",
+    accent: "#ff8057"
+  }
+];
+
+const world = biomes[biome];
+
+ctx.fillStyle = world.sky;
+ctx.fillRect(0, 0, W, H);
+
+// Estrelas e partículas no céu
+for (let i = 0; i < 35; i++) {
+  const x = (i * 137 + 30) % W;
+  const y = (i * 61 + 20) % 180;
+
+  ctx.fillStyle = world.accent;
+  ctx.globalAlpha = 0.35 + (i % 3) * 0.2;
+  ctx.fillRect(x, y, 2, 2);
+}
+ctx.globalAlpha = 1;
+
+// Montanhas com cores do cenário atual
+ctx.fillStyle = world.mountain;
+ctx.beginPath();
+ctx.moveTo(0, groundY);
+
+for (let x = 0; x <= W; x += 80) {
+  const height = 30 + ((x * 7) % 45);
+  ctx.lineTo(x, groundY - height);
+}
+
+ctx.lineTo(W, groundY);
+ctx.closePath();
+ctx.fill();
+
+// Nome da fase
+ctx.fillStyle = world.accent;
+ctx.font = "bold 14px system-ui";
+ctx.textAlign = "right";
+ctx.fillText(world.name, W - 22, 28);
+ctx.textAlign = "left";
+Agora, logo depois do comentário // Chão, substitua as duas linhas que desenham o chão e as marcas por estas:
+javascript
+
+ctx.fillStyle = world.accent;
+ctx.fillRect(0, groundY, W, 3);
+
+ctx.fillStyle = world.ground;
+ctx.fillRect(0, groundY + 3, W, H - groundY);
+
+const offset = running ? (score * 3) % 45 : 0;
+
+ctx.fillStyle = world.accent;
+ctx.globalAlpha = 0.45;
+
+for (let x = -45; x < W; x += 45) {
+  ctx.fillRect(x - offset, groundY + 20, 19, 2);
+}
+
+ctx.globalAlpha = 1;
+Assim, a cada 1.000 pontos, o jogo muda automaticamente de ambiente. O cálculo usa a pontuação atual, então também funciona quando você coleta cristais.
+Alteração B — Adicionar animais como obstáculos
+Vamos incluir quatro tipos de perigos:
+🌵 Cacto: obstáculo clássico.
+🪨 Rocha: baixa, exigindo um salto curto.
+🦖 Dinossauro selvagem: animal terrestre que corre na direção do jogador.
+🪽 Pterossauro: animal voador que exige atenção à altura do salto.
+Primeiro, procure a função spawnObstacle() e substitua-a por esta:
+javascript
+
+function spawnObstacle() {
+  const biome = Math.floor(score / 1000) % 4;
+
+  const types = [
+    "cactus",
+    "rock",
+    "raptor",
+    "ptero"
+  ];
+
+  // Animais ficam mais frequentes nas fases avançadas.
+  let type;
+
+  if (Math.random() < Math.min(0.2 + biome * 0.12, 0.56)) {
+    type = Math.random() < 0.5 ? "raptor" : "ptero";
+  } else {
+    type = Math.random() < 0.5 ? "cactus" : "rock";
+  }
+
+  const settings = {
+    cactus: { w: 25, h: 43 },
+    rock:   { w: 34, h: 25 },
+    raptor: { w: 43, h: 42 },
+    ptero:  { w: 48, h: 27 }
+  };
+
+  const s = settings[type];
+
+  obstacles.push({
+    x: W + 20,
+    w: s.w,
+    h: s.h,
+    type: type,
+    y: type === "ptero"
+      ? groundY - 78 - Math.random() * 35
+      : groundY - s.h
+  });
+}
+Agora, dentro da função update(dt), procure o trecho que começa com:
+javascript
+for (const o of obstacles) {
+Substitua esse for inteiro pelo trecho abaixo. Ele faz os animais voadores aparecerem acima do chão e adapta a colisão à posição de cada obstáculo.
+javascript
+
+for (const o of obstacles) {
+  o.x -= speed * dt;
+
+  const obstacleBox = {
+    x: o.x + 3,
+    y: o.y + 3,
+    w: o.w - 6,
+    h: o.h - 5
+  };
+
+  if (overlap(playerBox, obstacleBox)) {
+    if (shieldActive) {
+      o.x = -100;
+      beep(620, 0.08);
+    } else {
+      endGame();
+      break;
+    }
+  }
+}
+Alteração C — Desenhar os novos obstáculos
+Na função draw(), procure o trecho que começa com // Obstáculos e termina imediatamente antes de // Dino.
+Substitua esse trecho por este código:
+javascript
+
+ // Obstáculos e animais
+for (const o of obstacles) {
+  if (o.type === "cactus") {
+    ctx.fillStyle = "#63d471";
+    ctx.fillRect(o.x + 7, o.y, o.w - 14, o.h);
+    ctx.fillRect(o.x, o.y + 14, 10, 8);
+    ctx.fillRect(o.x + o.w - 10, o.y + 22, 10, 8);
+
+  } else if (o.type === "rock") {
+    ctx.fillStyle = "#a5b4c4";
+    ctx.beginPath();
+    ctx.moveTo(o.x, o.y + o.h);
+    ctx.lineTo(o.x + 5, o.y + 8);
+    ctx.lineTo(o.x + 17, o.y);
+    ctx.lineTo(o.x + o.w - 4, o.y + 9);
+    ctx.lineTo(o.x + o.w, o.y + o.h);
+    ctx.closePath();
+    ctx.fill();
+
+  } else if (o.type === "raptor") {
+    // Corpo e cabeça do dinossauro selvagem
+    ctx.fillStyle = "#ff926b";
+    ctx.fillRect(o.x + 5, o.y + 12, 27, 18);
+    ctx.fillRect(o.x + 24, o.y + 2, 19, 14);
+    ctx.fillRect(o.x, o.y + 15, 10, 5);
+    ctx.fillRect(o.x + 10, o.y + 28, 7, 14);
+    ctx.fillRect(o.x + 27, o.y + 28, 7, 14);
+
+    ctx.fillStyle = "#251d2c";
+    ctx.fillRect(o.x + 35, o.y + 6, 3, 3);
+
+  } else if (o.type === "ptero") {
+    // Asas abertas do pterossauro
+    ctx.fillStyle = "#e3a7ff";
+    ctx.beginPath();
+    ctx.moveTo(o.x, o.y + 10);
+    ctx.lineTo(o.x + 17, o.y);
+    ctx.lineTo(o.x + 24, o.y + 12);
+    ctx.lineTo(o.x + 35, o.y + 3);
+    ctx.lineTo(o.x + o.w, o.y + 12);
+    ctx.lineTo(o.x + 30, o.y + 18);
+    ctx.lineTo(o.x + 17, o.y + 17);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#fff0ff";
+    ctx.fillRect(o.x + 28, o.y + 9, 3, 3);
+  }
+}
 
   // Céu e estrelas
   ctx.fillStyle = "#142b46";
