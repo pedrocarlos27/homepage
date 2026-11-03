@@ -5,225 +5,123 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dino Rush — Boss Run</title>
-
 <style>
-* {
-    box-sizing: border-box;
-}
-
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #101820;
-    color: white;
-    text-align: center;
-}
-
-header {
-    padding: 16px;
-    background: #172b36;
-}
-
-h1 {
-    margin: 5px;
-    color: #71e58a;
-}
-
-main {
-    max-width: 950px;
-    margin: auto;
-    padding: 12px;
-}
-
-canvas {
-    width: 100%;
-    display: block;
-    background: #d9f3ff;
-    border: 3px solid #71e58a;
-    border-radius: 10px;
-}
-
-.hud {
-    display: flex;
-    justify-content: space-around;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 12px 0;
-}
-
-.panel {
-    background: #203440;
-    padding: 10px;
-    border-radius: 8px;
-    min-width: 130px;
-}
-
-.bar {
-    height: 15px;
-    width: 180px;
-    max-width: 100%;
-    background: #454545;
-    border-radius: 10px;
-    overflow: hidden;
-    margin: 5px auto;
-}
-
-.fill {
-    height: 100%;
-    width: 100%;
-    transition: width 0.1s;
-}
-
-.green { background: #42df69; }
-.red { background: #ff4545; }
-.purple { background: #b25cff; }
-
-button {
-    background: #71e58a;
-    color: #10251a;
-    border: none;
-    border-radius: 7px;
-    padding: 11px 15px;
-    margin: 4px;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-button:hover {
-    background: #a0ffb1;
-}
-
-button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-}
-
-#shop {
-    background: #203440;
-    border-radius: 10px;
-    padding: 14px;
-    margin-top: 12px;
-}
-
-#message {
-    min-height: 25px;
-    color: #ffe37c;
-    font-weight: bold;
-}
-
-.instructions {
-    color: #d4e2e8;
-    line-height: 1.7;
-    font-size: 14px;
-}
+*{box-sizing:border-box}
+body{margin:0;background:#101820;color:#fff;font-family:Arial,sans-serif;text-align:center}
+header{padding:14px;background:#172b36}
+h1{margin:5px;color:#71e58a}
+main{max-width:960px;margin:auto;padding:12px}
+canvas{display:block;width:100%;height:auto;background:#d9f3ff;border:3px solid #71e58a;border-radius:10px;touch-action:manipulation}
+.hud{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:12px 0}
+.panel{background:#203440;padding:10px;border-radius:8px;min-width:120px}
+.bar{height:15px;width:min(300px,80vw);background:#454545;border-radius:10px;overflow:hidden;margin:6px auto}
+.fill{height:100%;width:100%;transition:width .12s}
+.green{background:#42df69}
+.red{background:#ff4545}
+.purple{background:#b25cff}
+#bossName{display:inline-block;color:#000;background:#fff2b8;border:2px solid #171717;border-radius:6px;padding:5px 10px;font-weight:900}
+button{background:#71e58a;color:#10251a;border:0;border-radius:7px;padding:10px 13px;margin:4px;cursor:pointer;font-weight:bold}
+button:hover{background:#a0ffb1}
+button:disabled{opacity:.5;cursor:not-allowed}
+#shop{background:#203440;border-radius:10px;padding:12px;margin-top:12px}
+#message{min-height:26px;color:#ffe37c;font-weight:bold;margin:10px}
+.small{font-size:13px;color:#d4e2e8;line-height:1.6}
+.shopline{display:flex;justify-content:center;flex-wrap:wrap;gap:4px}
 </style>
 </head>
-
 <body>
-
 <header>
-    <h1>🦖 DINO RUSH — BOSS RUN</h1>
-    <p>Corra, sobreviva, derrote o chefe e conquiste recompensas!</p>
+<h1>🦖 DINO RUSH — BOSS RUN</h1>
+<p>Corra, junte moedas, melhore suas armas e derrote os três chefes!</p>
 </header>
 
 <main>
+<div class="hud">
+ <div class="panel">Pontuação<br><strong id="score">0</strong></div>
+ <div class="panel">Moedas 🪙<br><strong id="coins">0</strong></div>
+ <div class="panel">Mapa<br><strong id="biome">Floresta</strong></div>
+ <div class="panel">Arma<br><strong id="weapon">Pistola inicial</strong></div>
+ <div class="panel">Chefe<br><strong id="bossNumber">Nenhum</strong></div>
+</div>
 
-    <div class="hud">
-        <div class="panel">
-            <div>Pontuação</div>
-            <strong id="score">0</strong>
-        </div>
+<section id="bossPanel" class="panel" style="display:none;margin-bottom:10px">
+ <strong id="bossName">BOSS</strong>
+ <div class="bar"><div id="bossHealthFill" class="fill purple"></div></div>
+ <span id="bossHealthText">100 / 100</span>
+ <br><br><strong>❤️ VIDA DO DINOSSAURO</strong>
+ <div class="bar"><div id="playerHealthFill" class="fill green"></div></div>
+ <span id="playerHealthText">100 / 100</span>
+</section>
 
-        <div class="panel">
-            <div>Moedas 🪙</div>
-            <strong id="coins">0</strong>
-        </div>
+<canvas id="game" width="900" height="420"></canvas>
+<div id="message">Clique em Iniciar jogo para começar!</div>
 
-        <div class="panel">
-            <div>Mapa</div>
-            <strong id="biome">Floresta</strong>
-        </div>
+<div>
+ <button id="startBtn">▶ Iniciar jogo</button>
+ <button id="jumpBtn">⬆ Pular</button>
+ <button id="shootBtn">🔫 Atirar</button>
+ <button id="shieldBtn">🛡 Usar escudo</button>
+ <button id="restartBtn">↻ Reiniciar</button>
+</div>
 
-        <div class="panel">
-            <div>Arma</div>
-            <strong id="weapon">Nenhuma</strong>
-        </div>
-    </div>
+<section id="shop">
+ <h2>🛒 Loja de melhorias</h2>
+ <p>Você começa com uma pistola fraca gratuita. Colete as moedas douradas que aparecem no mapa.</p>
+ <div class="shopline">
+  <button id="buyWeapon">🔫 Arma melhor — 10 moedas</button>
+  <button id="buyUpgrade">⚡ Melhorar arma — 15 moedas</button>
+  <button id="buyShield">🛡 Comprar escudo — 8 moedas</button>
+  <button id="buyHealth">❤️ Recuperar vida — 6 moedas</button>
+ </div>
+ <p id="shopInfo" class="small">Pistola inicial: dano baixo, mas você já começa armado.</p>
+</section>
 
-    <section id="bossPanel" class="panel" style="display:none">
-        <strong>👹 VIDA DO CHEFE</strong>
-        <div class="bar">
-            <div id="bossHealthFill" class="fill purple"></div>
-        </div>
-        <span id="bossHealthText">100 / 100</span>
-
-        <br><br>
-
-        <strong>🦖 VIDA DO DINOSSAURO</strong>
-        <div class="bar">
-            <div id="playerHealthFill" class="fill green"></div>
-        </div>
-        <span id="playerHealthText">100 / 100</span>
-    </section>
-
-    <canvas id="game" width="900" height="420"></canvas>
-
-    <div id="message">Clique em Iniciar jogo para começar!</div>
-
-    <div>
-        <button id="startBtn">▶ Iniciar jogo</button>
-        <button id="jumpBtn">⬆ Pular</button>
-        <button id="shootBtn">🔫 Atirar</button>
-        <button id="shieldBtn">🛡 Usar escudo</button>
-        <button id="restartBtn">↻ Reiniciar</button>
-    </div>
-
-    <section id="shop">
-        <h2>🛒 Loja de recompensas</h2>
-        <p>Use suas moedas para comprar melhorias.</p>
-
-        <button id="buyWeapon">
-            🔫 Comprar arma — 10 moedas
-        </button>
-
-        <button id="buyShield">
-            🛡 Comprar escudo — 8 moedas
-        </button>
-
-        <button id="buyHealth">
-            ❤️ Recuperar vida — 6 moedas
-        </button>
-
-        <button id="buyUpgrade">
-            ⚡ Melhorar arma — 15 moedas
-        </button>
-    </section>
-
-    <p class="instructions">
-        <strong>Controles:</strong><br>
-        Espaço ou ↑ = pular<br>
-        ↓ = abaixar durante a corrida<br>
-        X = atirar<br>
-        S = usar escudo<br>
-        Durante o chefe, pule e desvie dos ataques!
-    </p>
-
+<p class="small">
+<strong>Controles:</strong> Espaço/↑ = pular · ↓ = abaixar · X = atirar · S = escudo.<br>
+No celular, toque no lado esquerdo do jogo para pular e no direito para atirar. Também é possível usar os botões.
+</p>
 </main>
 
 <script>
+"use strict";
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
 const $ = id => document.getElementById(id);
 
-const WIDTH = canvas.width;
-const HEIGHT = canvas.height;
+const W = canvas.width;
+const H = canvas.height;
 const GROUND = 350;
+const MAX_HP = 100;
 
-const PLAYER_MAX_HP = 100;
+const biomes = [
+ {name:"Floresta",sky:"#d9f3ff",ground:"#568b45",hill:"#a5d58b",line:"#315e2b"},
+ {name:"Deserto",sky:"#ffdca0",ground:"#d6a052",hill:"#f0c477",line:"#96602d"},
+ {name:"Neve",sky:"#dcecff",ground:"#f4f7ff",hill:"#b9d8f2",line:"#8eabc9"},
+ {name:"Vulcão",sky:"#482f46",ground:"#39313b",hill:"#8d4c42",line:"#ff713d"}
+];
+
+const bossSpecs = [
+ {
+  name:"BOSS 1 — REX",
+  hp:100, damage:16, interval:88, speed:1.2,
+  color:"#c74650", reward:30
+ },
+ {
+  name:"BOSS 2 — REX FURIOSO",
+  hp:190, damage:22, interval:65, speed:1.8,
+  color:"#9b3ac4", reward:55
+ },
+ {
+  name:"BOSS 3 — REI DOS DINOS",
+  hp:310, damage:28, interval:46, speed:2.4,
+  color:"#542b32", reward:100
+ }
+];
 
 let running = false;
 let gameOver = false;
+let victory = false;
 let bossMode = false;
 
 let score = 0;
@@ -232,1010 +130,1086 @@ let speed = 5;
 let frame = 0;
 let lastTime = 0;
 let spawnTimer = 0;
+let coinSpawnTimer = 70;
+
+let bossIndex = -1;
+let boss = null;
 let bossAttackTimer = 0;
-let bossIntro = false;
+let bossAttackCount = 0;
 
-let playerHp = PLAYER_MAX_HP;
+let playerHp = MAX_HP;
 let playerHitUntil = 0;
-
-let weaponLevel = 0;
-let hasWeapon = false;
 let shieldCharges = 0;
 let shieldUntil = 0;
 
+let weaponLevel = 0;
+
 let obstacles = [];
-let projectiles = [];
-let enemyProjectiles = [];
-let particles = [];
-
-let boss = null;
-
-const player = {
-    x: 100,
-    y: GROUND - 54,
-    w: 42,
-    h: 54,
-    vy: 0,
-    onGround: true,
-    ducking: false
-};
-
-const biomes = [
-    {
-        name: "Floresta",
-        sky: "#d9f3ff",
-        ground: "#568b45",
-        hill: "#a5d58b",
-        groundLine: "#315e2b"
-    },
-    {
-        name: "Deserto",
-        sky: "#ffdca0",
-        ground: "#d6a052",
-        hill: "#f0c477",
-        groundLine: "#96602d"
-    },
-    {
-        name: "Neve",
-        sky: "#dcecff",
-        ground: "#f4f7ff",
-        hill: "#b9d8f2",
-        groundLine: "#8eabc9"
-    },
-    {
-        name: "Vulcão",
-        sky: "#482f46",
-        ground: "#39313b",
-        hill: "#8d4c42",
-        groundLine: "#ff713d"
-    }
-];
-
+let bullets = [];
+let enemyBullets = [];
+let coinItems = [];
 let currentBiome = biomes[0];
 
-function setMessage(text) {
-    $("message").textContent = text;
+const player = {
+ x:100,
+ y:GROUND-54,
+ w:42,
+ h:54,
+ vy:0,
+ onGround:true,
+ ducking:false
+};
+
+function msg(text) {
+ $("message").textContent = text;
+}
+
+function weaponName() {
+ if (weaponLevel === 0) return "Pistola inicial";
+ if (weaponLevel === 1) return "Blaster";
+ return "Blaster nível " + weaponLevel;
+}
+
+function weaponDamage() {
+ return weaponLevel === 0 ? 7 : 12 + (weaponLevel-1)*8;
 }
 
 function updateHUD() {
-    $("score").textContent = Math.floor(score);
-    $("coins").textContent = coins;
-    $("biome").textContent = currentBiome.name;
+ $("score").textContent = Math.floor(score);
+ $("coins").textContent = coins;
+ $("biome").textContent = currentBiome.name;
+ $("weapon").textContent = weaponName();
+ $("bossNumber").textContent = bossIndex < 0 ? "Nenhum" : (bossIndex+1)+"/3";
 
-    $("weapon").textContent = hasWeapon
-        ? "Nível " + weaponLevel
-        : "Nenhuma";
+ $("bossPanel").style.display = bossMode && boss ? "block" : "none";
 
-    $("bossPanel").style.display =
-        bossMode && boss ? "block" : "none";
+ if (boss) {
+  $("bossName").textContent = bossSpecs[bossIndex].name;
+  $("bossHealthFill").style.width =
+   Math.max(0,boss.hp/boss.maxHp*100)+"%";
+  $("bossHealthText").textContent =
+   Math.ceil(Math.max(0,boss.hp))+" / "+boss.maxHp;
+ }
 
-    if (boss) {
-        $("bossHealthFill").style.width =
-            Math.max(0, boss.hp / boss.maxHp * 100) + "%";
+ $("playerHealthFill").style.width =
+  Math.max(0,playerHp/MAX_HP*100)+"%";
+ $("playerHealthText").textContent =
+  Math.ceil(playerHp)+" / "+MAX_HP;
 
-        $("bossHealthText").textContent =
-            Math.ceil(boss.hp) + " / " + boss.maxHp;
-    }
-
-    $("playerHealthFill").style.width =
-        Math.max(0, playerHp / PLAYER_MAX_HP * 100) + "%";
-
-    $("playerHealthText").textContent =
-        Math.ceil(playerHp) + " / " + PLAYER_MAX_HP;
+ $("shopInfo").textContent =
+  "Arma atual: "+weaponName()+
+  " (dano "+weaponDamage()+"). Escudos: "+shieldCharges+".";
 }
 
 function resetGame() {
-    running = false;
-    gameOver = false;
-    bossMode = false;
-    bossIntro = false;
+ running = false;
+ gameOver = false;
+ victory = false;
+ bossMode = false;
 
-    score = 0;
-    speed = 5;
-    frame = 0;
-    lastTime = 0;
-    spawnTimer = 0;
-    bossAttackTimer = 0;
+ score = 0;
+ coins = 0;
+ speed = 5;
+ frame = 0;
+ lastTime = 0;
+ spawnTimer = 0;
+ coinSpawnTimer = 70;
 
-    playerHp = PLAYER_MAX_HP;
-    playerHitUntil = 0;
+ bossIndex = -1;
+ boss = null;
+ bossAttackTimer = 0;
+ bossAttackCount = 0;
 
-    weaponLevel = 0;
-    hasWeapon = false;
-    shieldCharges = 0;
-    shieldUntil = 0;
+ playerHp = MAX_HP;
+ playerHitUntil = 0;
+ shieldCharges = 0;
+ shieldUntil = 0;
 
-    obstacles = [];
-    projectiles = [];
-    enemyProjectiles = [];
-    particles = [];
-    boss = null;
+ weaponLevel = 0;
 
-    player.x = 100;
-    player.y = GROUND - player.h;
-    player.vy = 0;
-    player.onGround = true;
-    player.ducking = false;
+ obstacles = [];
+ bullets = [];
+ enemyBullets = [];
+ coinItems = [];
 
-    currentBiome = biomes[0];
+ player.x = 100;
+ player.y = GROUND-player.h;
+ player.vy = 0;
+ player.onGround = true;
+ player.ducking = false;
+ player.h = 54;
 
-    $("startBtn").disabled = false;
-    $("startBtn").textContent = "▶ Iniciar jogo";
+ currentBiome = biomes[0];
 
-    setMessage("Pronto! Clique em Iniciar jogo.");
-    updateHUD();
-    draw();
+ $("startBtn").disabled = false;
+ $("startBtn").textContent = "▶ Iniciar jogo";
+
+ msg("Pronto! Você já tem uma pistola inicial. Colete moedas para melhorar!");
+
+ updateHUD();
+ draw();
 }
 
 function startGame() {
-    if (gameOver) {
-        resetGame();
-    }
+ if (gameOver) resetGame();
+ if (running) return;
 
-    if (running) return;
+ running = true;
+ lastTime = 0;
+ $("startBtn").disabled = true;
 
-    running = true;
-    lastTime = 0;
-
-    $("startBtn").disabled = true;
-    setMessage("Corra e desvie dos obstáculos!");
-
-    requestAnimationFrame(loop);
+ msg("Corra, colete moedas e use sua pistola inicial!");
+ requestAnimationFrame(loop);
 }
 
 function jump() {
-    if (!running || gameOver) return;
+ if (!running || gameOver) return;
 
-    if (player.onGround) {
-        player.vy = bossMode ? -13 : -14;
-        player.onGround = false;
-        player.ducking = false;
-    }
+ if (player.onGround) {
+  player.vy = -13.5;
+  player.onGround = false;
+  player.ducking = false;
+  player.h = 54;
+ }
 }
 
 function shoot() {
-    if (!running || gameOver) return;
+ if (!running || gameOver) return;
 
-    if (!hasWeapon) {
-        setMessage("Compre uma arma na loja primeiro!");
-        return;
-    }
-
-    const damage = 12 + weaponLevel * 8;
-
-    projectiles.push({
-        x: player.x + player.w,
-        y: player.y + 24,
-        w: 16,
-        h: 7,
-        vx: 10,
-        damage: damage
-    });
+ bullets.push({
+  x:player.x+player.w,
+  y:player.y+24,
+  w:15,
+  h:7,
+  vx:10,
+  damage:weaponDamage(),
+  hit:false
+ });
 }
 
 function useShield() {
-    if (!running || gameOver) return;
+ if (!running || gameOver) return;
 
-    if (shieldCharges <= 0) {
-        setMessage("Você não tem escudos! Compre um na loja.");
-        return;
-    }
+ if (shieldCharges <= 0) {
+  msg("Você não tem escudo. Compre um por 8 moedas na loja.");
+  return;
+ }
 
-    shieldCharges--;
-    shieldUntil = performance.now() + 3500;
-
-    setMessage("Escudo ativado por 3,5 segundos!");
+ shieldCharges--;
+ shieldUntil = performance.now()+4000;
+ msg("Escudo ativado por 4 segundos!");
+ updateHUD();
 }
 
 function damagePlayer(amount) {
-    const now = performance.now();
+ const now = performance.now();
 
-    if (now < shieldUntil) {
-        return;
-    }
+ if (now < shieldUntil || now < playerHitUntil) return;
 
-    if (now < playerHitUntil) {
-        return;
-    }
+ playerHp = Math.max(0,playerHp-amount);
+ playerHitUntil = now+1000;
 
-    playerHp -= amount;
-    playerHitUntil = now + 1100;
+ if (playerHp <= 0) endGame(false);
 
-    if (playerHp <= 0) {
-        playerHp = 0;
-        endGame(false);
-    }
-
-    updateHUD();
+ updateHUD();
 }
 
-function startBoss() {
-    bossMode = true;
-    bossIntro = true;
+function startBoss(index) {
+ bossIndex = index;
+ bossMode = true;
 
-    obstacles = [];
-    enemyProjectiles = [];
-    projectiles = [];
+ obstacles = [];
+ enemyBullets = [];
+ bullets = [];
+ coinItems = [];
 
-    boss = {
-        x: 650,
-        y: 170,
-        w: 150,
-        h: 140,
-        hp: 100,
-        maxHp: 100,
-        direction: 1,
-        phase: 1
-    };
+ const spec = bossSpecs[index];
 
-    playerHp = PLAYER_MAX_HP;
-    bossAttackTimer = 82;
+ boss = {
+  x:630,
+  y:165,
+  w:160,
+  h:145,
+  hp:spec.hp,
+  maxHp:spec.hp,
+  direction:1,
+  baseY:165
+ };
 
-    $("bossPanel").style.display = "block";
+ bossAttackCount = 0;
+ bossAttackTimer = Math.max(24,spec.interval*.72);
 
-    setMessage("⚠️ O CHEFE APARECEU! Desvie e ataque!");
+ $("bossPanel").style.display = "block";
 
-    updateHUD();
+ msg("⚠️ "+spec.name+" apareceu! Atire e desvie dos ataques!");
+ updateHUD();
 }
 
-function endGame(victory) {
-    running = false;
-    gameOver = true;
+function defeatBoss() {
+ const spec = bossSpecs[bossIndex];
+ const defeatedIndex = bossIndex;
 
-    $("startBtn").disabled = false;
-    $("startBtn").textContent = "▶ Jogar novamente";
+ coins += spec.reward;
+ bossMode = false;
+ boss = null;
+ bullets = [];
+ enemyBullets = [];
 
-    if (victory) {
-        setMessage("🏆 VITÓRIA! Você derrotou o chefe!");
-    } else {
-        setMessage("💥 Fim de jogo! Pontuação: " + Math.floor(score));
-    }
+ playerHp = Math.min(MAX_HP,playerHp+20);
 
-    draw();
+ if (defeatedIndex < 2) {
+  const nextThreshold = defeatedIndex === 0 ? 10000 : 15000;
+  msg("🏆 "+spec.name+" derrotado! +"+spec.reward+
+   " moedas e +20 de vida. O próximo chefe aparece aos "+
+   nextThreshold+" pontos.");
+ } else {
+  endGame(true);
+ }
+
+ updateHUD();
 }
 
-function buyItem(item) {
-    if (running && bossMode) {
-        setMessage("A loja fica disponível fora da batalha!");
-        return;
-    }
+function endGame(won) {
+ running = false;
+ gameOver = true;
+ victory = won;
 
-    if (item === "weapon") {
-        if (coins < 10) {
-            setMessage("Você precisa de 10 moedas para comprar uma arma.");
-            return;
-        }
+ $("startBtn").disabled = false;
+ $("startBtn").textContent = "▶ Jogar novamente";
 
-        coins -= 10;
-        hasWeapon = true;
-        weaponLevel = Math.max(weaponLevel, 1);
+ msg(won
+  ? "🏆 VITÓRIA! Você derrotou os três chefes!"
+  : "💥 Fim de jogo! Pontuação: "+Math.floor(score));
 
-        setMessage("Arma comprada! Use X ou o botão Atirar.");
-    }
+ draw();
+}
 
-    if (item === "shield") {
-        if (coins < 8) {
-            setMessage("Você precisa de 8 moedas para comprar um escudo.");
-            return;
-        }
+function buy(item) {
+ if (gameOver) {
+  msg("Reinicie a partida para usar a loja.");
+  return;
+ }
 
-        coins -= 8;
-        shieldCharges++;
+ if (item === "weapon") {
+  if (weaponLevel >= 1) {
+   msg("Você já comprou o Blaster. Use Melhorar arma para aumentar o dano.");
+   return;
+  }
 
-        setMessage("Escudo comprado!");
-    }
+  if (coins < 10) {
+   msg("Faltam moedas! Pegue as moedas douradas no mapa.");
+   return;
+  }
 
-    if (item === "health") {
-        if (coins < 6) {
-            setMessage("Você precisa de 6 moedas para recuperar vida.");
-            return;
-        }
+  coins -= 10;
+  weaponLevel = 1;
+  msg("Blaster comprado! Seu dano aumentou.");
 
-        if (playerHp >= PLAYER_MAX_HP) {
-            setMessage("Sua vida já está cheia!");
-            return;
-        }
+ } else if (item === "upgrade") {
+  if (coins < 15) {
+   msg("Você precisa de 15 moedas para melhorar a arma.");
+   return;
+  }
 
-        coins -= 6;
-        playerHp = Math.min(PLAYER_MAX_HP, playerHp + 35);
+  if (weaponLevel >= 5) {
+   msg("Sua arma já está no nível máximo!");
+   return;
+  }
 
-        setMessage("Você recuperou 35 pontos de vida!");
-    }
+  coins -= 15;
+  weaponLevel++;
+  msg("Arma melhorada para o nível "+weaponLevel+"!");
 
-    if (item === "upgrade") {
-        if (!hasWeapon) {
-            setMessage("Compre uma arma antes de melhorá-la.");
-            return;
-        }
+ } else if (item === "shield") {
+  if (coins < 8) {
+   msg("Você precisa de 8 moedas para comprar escudo.");
+   return;
+  }
 
-        if (coins < 15) {
-            setMessage("Você precisa de 15 moedas para melhorar a arma.");
-            return;
-        }
+  coins -= 8;
+  shieldCharges++;
+  msg("Escudo comprado! Use S ou o botão de escudo.");
 
-        coins -= 15;
-        weaponLevel++;
+ } else if (item === "health") {
+  if (coins < 6) {
+   msg("Você precisa de 6 moedas para recuperar vida.");
+   return;
+  }
 
-        setMessage("Arma melhorada para o nível " + weaponLevel + "!");
-    }
+  if (playerHp >= MAX_HP) {
+   msg("Sua vida já está cheia!");
+   return;
+  }
 
-    updateHUD();
+  coins -= 6;
+  playerHp = Math.min(MAX_HP,playerHp+35);
+  msg("Vida recuperada!");
+ }
+
+ updateHUD();
 }
 
 function spawnObstacle() {
-    const types = ["cactus", "rock", "raptor", "ptero"];
-    const type = types[Math.floor(Math.random() * types.length)];
+ const types = ["cactus","rock","raptor","ptero"];
+ const type = types[Math.floor(Math.random()*types.length)];
 
-    let obstacle = {
-        type,
-        x: WIDTH + 30,
-        y: GROUND - 40,
-        w: 35,
-        h: 40,
-        passed: false
-    };
+ const o = {
+  type,
+  x:W+25,
+  y:GROUND-40,
+  w:36,
+  h:40,
+  passed:false,
+  hp:(type==="raptor" || type==="ptero") ? 1 : Infinity
+ };
 
-    if (type === "cactus") {
-        obstacle.w = 28;
-        obstacle.h = 48;
-        obstacle.y = GROUND - obstacle.h;
-    }
+ if (type === "cactus") {
+  o.w=28;
+  o.h=48;
+  o.y=GROUND-o.h;
+ }
 
-    if (type === "rock") {
-        obstacle.w = 42;
-        obstacle.h = 28;
-        obstacle.y = GROUND - obstacle.h;
-    }
+ if (type === "rock") {
+  o.w=42;
+  o.h=28;
+  o.y=GROUND-o.h;
+ }
 
-    if (type === "raptor") {
-        obstacle.w = 48;
-        obstacle.h = 42;
-        obstacle.y = GROUND - obstacle.h;
-    }
+ if (type === "raptor") {
+  o.w=48;
+  o.h=42;
+  o.y=GROUND-o.h;
+ }
 
-    if (type === "ptero") {
-        obstacle.w = 48;
-        obstacle.h = 28;
-        obstacle.y = GROUND - 95 - Math.random() * 30;
-    }
+ if (type === "ptero") {
+  o.w=48;
+  o.h=28;
+  o.y=GROUND-95-Math.random()*30;
+ }
 
-    obstacles.push(obstacle);
+ obstacles.push(o);
 }
 
-function rectsCollide(a, b) {
-    return a.x < b.x + b.w &&
-           a.x + a.w > b.x &&
-           a.y < b.y + b.h &&
-           a.y + a.h > b.y;
+function spawnCoin() {
+ const yChoices = [GROUND-42,GROUND-82,GROUND-125];
+
+ coinItems.push({
+  x:W+20,
+  y:yChoices[Math.floor(Math.random()*yChoices.length)],
+  r:12,
+  spin:Math.random()*Math.PI*2
+ });
+}
+
+function collide(a,b) {
+ return a.x < b.x+b.w &&
+        a.x+a.w > b.x &&
+        a.y < b.y+b.h &&
+        a.y+a.h > b.y;
 }
 
 function update(dt) {
-    if (!running || gameOver) return;
+ if (!running || gameOver) return;
 
-    const step = dt / 16.67;
+ const step = dt/16.67;
+ frame += step;
 
-    frame += step;
+ if (!bossMode) {
+  score += 0.45*step;
+  speed = Math.min(12,5+score/420);
+  currentBiome = biomes[Math.floor(score/250)%biomes.length];
 
-    if (!bossMode) {
-        score += 0.45 * step;
-        speed = Math.min(10, 5 + score / 500);
+  // Cada chefe só aparece ao atingir seu próprio limite.
+  if (score >= 15000 && bossIndex < 2) {
+   startBoss(2);
+  } else if (score >= 10000 && bossIndex < 1) {
+   startBoss(1);
+  } else if (score >= 5000 && bossIndex < 0) {
+   startBoss(0);
+  }
 
-        currentBiome = biomes[
-            Math.floor(score / 250) % biomes.length
-        ];
+  if (!bossMode) {
+   spawnTimer -= step;
+   coinSpawnTimer -= step;
 
-        if (score >= 1000) {
-            startBoss();
-        }
+   if (spawnTimer <= 0) {
+    spawnObstacle();
+    spawnTimer = Math.max(30,68+Math.random()*48-score/100);
+   }
 
-        spawnTimer -= step;
+   if (coinSpawnTimer <= 0) {
+    spawnCoin();
+    coinSpawnTimer = Math.max(32,75+Math.random()*45-score/100);
+   }
 
-        if (spawnTimer <= 0 && !bossMode) {
-            spawnObstacle();
-            spawnTimer = 70 + Math.random() * 55;
-        }
+   obstacles.forEach(o => { o.x -= speed*step; });
 
-        obstacles.forEach(obstacle => {
-            obstacle.x -= speed * step;
+   obstacles = obstacles.filter(o => o.x+o.w > -30 && o.hp !== 0);
 
-            if (!obstacle.passed &&
-                obstacle.x + obstacle.w < player.x) {
-                obstacle.passed = true;
-                coins++;
-            }
-        });
+   coinItems.forEach(c => {
+    c.x -= speed*step;
+    c.spin += 0.12*step;
+   });
 
-        obstacles = obstacles.filter(
-            obstacle => obstacle.x + obstacle.w > -20
-        );
+   const playerBox = {
+    x:player.x+4,
+    y:player.y+4,
+    w:player.w-8,
+    h:player.h-8
+   };
 
-    } else if (boss) {
-        boss.x += boss.direction * 1.3 * step;
+   coinItems = coinItems.filter(c => {
+    const coinBox = {
+     x:c.x-c.r,
+     y:c.y-c.r,
+     w:c.r*2,
+     h:c.r*2
+    };
 
-        if (boss.x > 690) boss.direction = -1;
-        if (boss.x < 570) boss.direction = 1;
-
-        bossAttackTimer -= step;
-
-        if (bossAttackTimer <= 0) {
-            const attackType = Math.random();
-
-            if (attackType < 0.55) {
-                enemyProjectiles.push({
-                    x: boss.x,
-                    y: boss.y + 80,
-                    w: 22,
-                    h: 18,
-                    vx: -6.5,
-                    vy: Math.random() * 2 - 1
-                });
-            } else {
-                enemyProjectiles.push({
-                    x: boss.x,
-                    y: GROUND - 24,
-                    w: 32,
-                    h: 24,
-                    vx: -7.5,
-                    vy: 0
-                });
-            }
-
-            bossAttackTimer = 82 + Math.random() * 30;
-        }
-
-        if (boss.hp <= 0) {
-            coins += 30;
-            endGame(true);
-            return;
-        }
+    if (collide(playerBox,coinBox)) {
+     coins += 1;
+     score += 5;
+     msg("🪙 Moeda coletada! +1 moeda");
+     return false;
     }
 
-    // Física do dinossauro funciona tanto na corrida quanto no chefe.
-    player.vy += 0.65 * step;
-    player.y += player.vy * step;
+    return c.x+c.r > -10;
+   });
+  }
 
-    if (player.y + player.h >= GROUND) {
-        player.y = GROUND - player.h;
-        player.vy = 0;
-        player.onGround = true;
+ } else if (bossMode && boss) {
+  const spec = bossSpecs[bossIndex];
+  const rage = boss.hp/boss.maxHp < 0.45 ? 1.35 : 1;
+
+  // Chefes ficam mais rápidos quando estão com pouca vida.
+  boss.x += boss.direction*spec.speed*rage*step;
+
+  if (boss.x > 690) {
+   boss.x = 690;
+   boss.direction = -1;
+  }
+
+  if (boss.x < 535) {
+   boss.x = 535;
+   boss.direction = 1;
+  }
+
+  boss.y = boss.baseY +
+   Math.sin(frame*(0.055+bossIndex*0.018))*((bossIndex+1)*7);
+
+  bossAttackTimer -= step;
+
+  if (bossAttackTimer <= 0) {
+   bossAttackCount++;
+
+   const originX = boss.x+12;
+   const originY = boss.y+72;
+   const shotSpeed = 6+bossIndex*1.25+(rage-1)*2;
+
+   const addShot = (x,y,vx,vy,w=20,h=18,type="orb") => {
+    enemyBullets.push({x,y,w,h,vx,vy,type,hit:false});
+   };
+
+   // BOSS 1 — REX:
+   // Tiro direcionado, leque de três tiros e onda rasteira.
+   if (bossIndex === 0) {
+    if (bossAttackCount%3 === 0) {
+     [-1.15,0,1.15].forEach(a =>
+      addShot(originX,originY,-shotSpeed,a,20,18,"orb")
+     );
+    } else if (bossAttackCount%2 === 0) {
+     addShot(originX,GROUND-23,-shotSpeed-1,0,30,18,"wave");
+    } else {
+     const targetY = player.y+player.h/2;
+     const vy = Math.max(-2.5,Math.min(2.5,(targetY-originY)/85));
+     addShot(originX,originY,-shotSpeed,vy,21,19,"orb");
     }
 
-    // Projéteis do jogador.
-    projectiles.forEach(bullet => {
-        bullet.x += bullet.vx * step;
+    bossAttackTimer =
+     spec.interval*(rage>1?0.62:0.82)+Math.random()*10;
+   }
 
-        if (bossMode && boss && rectsCollide(bullet, boss)) {
-            boss.hp -= bullet.damage;
-            bullet.hit = true;
+   // BOSS 2 — REX FURIOSO:
+   // Leque de cinco tiros, ondas duplas e rajada direcionada.
+   else if (bossIndex === 1) {
+    const pattern = bossAttackCount%3;
 
-            if (boss.hp < 0) boss.hp = 0;
-        }
-    });
+    if (pattern === 0) {
+     [-2.1,-1.1,0,1.1,2.1].forEach(a =>
+      addShot(originX,originY,-shotSpeed,a,22,20,"orb")
+     );
+    } else if (pattern === 1) {
+     addShot(originX,GROUND-24,-shotSpeed-1.4,0,34,19,"wave");
+     addShot(originX+38,GROUND-24,-shotSpeed-1.8,0,34,19,"wave");
+    } else {
+     const targetVy = Math.max(
+      -2.8,
+      Math.min(2.8,(player.y+player.h/2-originY)/70)
+     );
 
-    projectiles = projectiles.filter(
-        bullet => bullet.x < WIDTH + 30 && !bullet.hit
-    );
-
-    // Ataques do chefe.
-    enemyProjectiles.forEach(bullet => {
-        bullet.x += bullet.vx * step;
-        bullet.y += bullet.vy * step;
-
-        const playerBox = {
-            x: player.x + 5,
-            y: player.y + 5,
-            w: player.w - 10,
-            h: player.h - 10
-        };
-
-        if (rectsCollide(bullet, playerBox)) {
-            damagePlayer(18);
-            bullet.hit = true;
-        }
-    });
-
-    enemyProjectiles = enemyProjectiles.filter(
-        bullet => bullet.x + bullet.w > -10 && !bullet.hit
-    );
-
-    // Colisões com obstáculos.
-    if (!bossMode) {
-        const playerBox = {
-            x: player.x + 6,
-            y: player.y + 5,
-            w: player.w - 12,
-            h: player.h - 10
-        };
-
-        for (const obstacle of obstacles) {
-            if (rectsCollide(playerBox, obstacle)) {
-                endGame(false);
-                return;
-            }
-        }
+     for (let i=0;i<3;i++) {
+      addShot(
+       originX+i*12,
+       originY+i*9,
+       -shotSpeed-1.2,
+       targetVy,
+       19,18,"orb"
+      );
+     }
     }
 
-    // Partículas decorativas.
-    particles.forEach(particle => {
-        particle.x += particle.vx * step;
-        particle.y += particle.vy * step;
-        particle.life -= step;
-    });
+    bossAttackTimer =
+     spec.interval*(rage>1?0.48:0.66)+Math.random()*7;
+   }
 
-    particles = particles.filter(p => p.life > 0);
+   // BOSS 3 — REI DOS DINOS:
+   // Leque de sete tiros, meteoros, ondas duplas e rajada de cinco tiros.
+   else {
+    const pattern = bossAttackCount%4;
 
-    updateHUD();
+    if (pattern === 0) {
+     [-2.8,-1.8,-0.9,0,0.9,1.8,2.8].forEach(a =>
+      addShot(originX,originY,-shotSpeed,a,24,22,"orb")
+     );
+    } else if (pattern === 1) {
+     // Meteoros caem em diferentes posições do campo.
+     for (let i=0;i<3;i++) {
+      addShot(
+       player.x+25+(Math.random()*90-45),
+       -25-Math.random()*70,
+       0,
+       5.2+i*.45,
+       24,25,"meteor"
+      );
+     }
+    } else if (pattern === 2) {
+     addShot(originX,GROUND-25,-shotSpeed-1.8,0,38,21,"wave");
+     addShot(originX+28,GROUND-25,-shotSpeed-2.1,0,38,21,"wave");
+    } else {
+     const targetVy = Math.max(
+      -3.3,
+      Math.min(3.3,(player.y+player.h/2-originY)/65)
+     );
+
+     for (let i=0;i<5;i++) {
+      addShot(
+       originX+i*9,
+       originY+i*5,
+       -shotSpeed-1.8,
+       targetVy,
+       21,20,"orb"
+      );
+     }
+    }
+
+    bossAttackTimer =
+     spec.interval*(rage>1?0.36:0.52)+Math.random()*5;
+   }
+  }
+ }
+
+ // Física do jogador.
+ player.vy += 0.65*step;
+ player.y += player.vy*step;
+
+ if (player.y+player.h >= GROUND) {
+  player.y = GROUND-player.h;
+  player.vy = 0;
+  player.onGround = true;
+ }
+
+ // Os tiros do jogador acertam os inimigos.
+ bullets.forEach(b => {
+  b.x += b.vx*step;
+
+  if (bossMode && boss && collide(b,boss)) {
+   boss.hp -= b.damage;
+   b.hit = true;
+   return;
+  }
+
+  if (!bossMode) {
+   for (const o of obstacles) {
+    if (
+     (o.type==="raptor" || o.type==="ptero") &&
+     o.hp>0 &&
+     collide(b,o)
+    ) {
+     o.hp -= 1;
+     b.hit = true;
+
+     if (o.hp <= 0) {
+      score += 15;
+      msg("🎯 Animal derrotado! +15 pontos");
+     }
+
+     break;
+    }
+   }
+  }
+ });
+
+ bullets = bullets.filter(b => b.x<W+40 && !b.hit);
+
+ if (bossMode && boss && boss.hp<=0) {
+  defeatBoss();
+  if (gameOver) return;
+ }
+
+ // Projéteis dos chefes.
+ enemyBullets.forEach(b => {
+  b.x += b.vx*step;
+  b.y += b.vy*step;
+
+  const p = {
+   x:player.x+7,
+   y:player.y+6,
+   w:player.w-14,
+   h:player.h-12
+  };
+
+  if (collide(b,p)) {
+   damagePlayer(bossSpecs[Math.max(0,bossIndex)].damage);
+   b.hit = true;
+  }
+ });
+
+ enemyBullets = enemyBullets.filter(b =>
+  b.x+b.w>-20 && b.y<H+45 && !b.hit
+ );
+
+ // Colidir com obstáculos termina a corrida.
+ if (!bossMode && running) {
+  const p = {
+   x:player.x+7,
+   y:player.y+5,
+   w:player.w-14,
+   h:player.h-10
+  };
+
+  for (const o of obstacles) {
+   if (o.hp!==0 && collide(p,o)) {
+    endGame(false);
+    break;
+   }
+  }
+ }
+
+ updateHUD();
 }
 
 function drawBackground() {
-    ctx.fillStyle = currentBiome.sky;
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+ ctx.fillStyle = currentBiome.sky;
+ ctx.fillRect(0,0,W,H);
 
-    ctx.fillStyle = currentBiome.hill;
+ ctx.fillStyle = currentBiome.hill;
 
-    for (let i = 0; i < 6; i++) {
-        const x = ((i * 190 - frame * 0.7) % (WIDTH + 190));
+ for (let i=0;i<6;i++) {
+  let x = (i*190-frame*.7)%(W+190);
+  if (x<0) x += W+190;
 
-        ctx.beginPath();
-        ctx.ellipse(
-            x,
-            GROUND + 5,
-            120,
-            85,
-            0,
-            Math.PI,
-            Math.PI * 2
-        );
-        ctx.fill();
-    }
+  ctx.beginPath();
+  ctx.ellipse(x,GROUND+5,120,85,0,Math.PI,Math.PI*2);
+  ctx.fill();
+ }
 
-    ctx.fillStyle = currentBiome.ground;
-    ctx.fillRect(0, GROUND, WIDTH, HEIGHT - GROUND);
+ ctx.fillStyle = currentBiome.ground;
+ ctx.fillRect(0,GROUND,W,H-GROUND);
 
-    ctx.fillStyle = currentBiome.groundLine;
-    ctx.fillRect(0, GROUND, WIDTH, 5);
+ ctx.fillStyle = currentBiome.line;
+ ctx.fillRect(0,GROUND,W,5);
 
-    // Marcas no chão em movimento.
-    ctx.strokeStyle = "rgba(0,0,0,0.12)";
-    ctx.lineWidth = 2;
+ ctx.strokeStyle = "rgba(0,0,0,.13)";
+ ctx.lineWidth = 2;
 
-    for (let i = 0; i < 18; i++) {
-        let x = (i * 65 - frame * speed * 2) % WIDTH;
-        if (x < 0) x += WIDTH;
+ for (let i=0;i<18;i++) {
+  let x = (i*65-frame*speed*2)%W;
+  if (x<0) x += W;
 
-        ctx.beginPath();
-        ctx.moveTo(x, GROUND + 25);
-        ctx.lineTo(x + 20, GROUND + 25);
-        ctx.stroke();
-    }
+  ctx.beginPath();
+  ctx.moveTo(x,GROUND+25);
+  ctx.lineTo(x+20,GROUND+25);
+  ctx.stroke();
+ }
 
-    if (currentBiome.name === "Vulcão") {
-        ctx.fillStyle = "#ff8c42";
+ if (currentBiome.name==="Vulcão") {
+  ctx.fillStyle = "#ff8c42";
 
-        for (let i = 0; i < 8; i++) {
-            let x = (i * 130 - frame * 1.2) % WIDTH;
-            if (x < 0) x += WIDTH;
+  for (let i=0;i<8;i++) {
+   let x = (i*130-frame*1.2)%W;
+   if (x<0) x += W;
 
-            ctx.beginPath();
-            ctx.arc(x, 65 + (i % 3) * 30, 3, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
-
-    if (currentBiome.name === "Neve") {
-        ctx.fillStyle = "rgba(255,255,255,0.8)";
-
-        for (let i = 0; i < 20; i++) {
-            let x = (i * 53 - frame * 1.5) % WIDTH;
-            if (x < 0) x += WIDTH;
-
-            let y = (i * 37 + frame * 0.7) % GROUND;
-
-            ctx.beginPath();
-            ctx.arc(x, y, 2, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
+   ctx.beginPath();
+   ctx.arc(x,65+(i%3)*30,3,0,Math.PI*2);
+   ctx.fill();
+  }
+ }
 }
 
 function drawPlayer() {
-    const blinking =
-        performance.now() < playerHitUntil &&
-        Math.floor(performance.now() / 100) % 2 === 0;
+ if (
+  performance.now()<playerHitUntil &&
+  Math.floor(performance.now()/100)%2===0
+ ) return;
 
-    if (blinking) return;
+ const x = player.x;
+ const y = player.y;
 
-    const x = player.x;
-    const y = player.y;
+ ctx.fillStyle = "#278447";
+ ctx.beginPath();
+ ctx.moveTo(x+5,y+35);
+ ctx.lineTo(x-13,y+43);
+ ctx.lineTo(x+7,y+47);
+ ctx.fill();
 
-    // Cauda.
-    ctx.fillStyle = "#278447";
-    ctx.beginPath();
-    ctx.moveTo(x + 5, y + 35);
-    ctx.lineTo(x - 13, y + 43);
-    ctx.lineTo(x + 7, y + 47);
-    ctx.fill();
+ ctx.fillStyle = "#39b95e";
+ ctx.fillRect(x+5,y+22,29,25);
+ ctx.fillRect(x+18,y+5,26,22);
+ ctx.fillRect(x+33,y+15,14,10);
 
-    // Corpo.
-    ctx.fillStyle = "#39b95e";
-    ctx.fillRect(x + 5, y + 22, 29, 25);
+ ctx.fillStyle = "#fff";
+ ctx.fillRect(x+34,y+8,7,7);
 
-    // Cabeça.
-    ctx.fillRect(x + 18, y + 5, 26, 22);
+ ctx.fillStyle = "#111";
+ ctx.fillRect(x+38,y+10,3,4);
 
-    // Focinho.
-    ctx.fillRect(x + 33, y + 15, 14, 10);
+ ctx.fillStyle = "#20743c";
+ const leg = Math.sin(frame*.5)*4;
 
-    // Olho.
-    ctx.fillStyle = "white";
-    ctx.fillRect(x + 34, y + 8, 7, 7);
+ ctx.fillRect(x+9,y+43,8,11+(player.onGround&&!bossMode?leg:0));
+ ctx.fillRect(x+25,y+43,8,11-(player.onGround&&!bossMode?leg:0));
 
-    ctx.fillStyle = "#111";
-    ctx.fillRect(x + 38, y + 10, 3, 4);
-
-    // Pernas.
-    ctx.fillStyle = "#20743c";
-
-    if (player.onGround && running && !bossMode) {
-        const legMove = Math.sin(frame * 0.5) * 5;
-
-        ctx.fillRect(x + 9, y + 43, 8, 11 + legMove);
-        ctx.fillRect(x + 25, y + 43, 8, 11 - legMove);
-    } else {
-        ctx.fillRect(x + 9, y + 43, 8, 11);
-        ctx.fillRect(x + 25, y + 43, 8, 11);
-    }
-
-    // Escudo visual.
-    if (performance.now() < shieldUntil) {
-        ctx.strokeStyle = "#5de5ff";
-        ctx.lineWidth = 4;
-
-        ctx.beginPath();
-        ctx.ellipse(
-            x + 22,
-            y + 28,
-            35,
-            40,
-            0,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.stroke();
-    }
+ if (performance.now()<shieldUntil) {
+  ctx.strokeStyle = "#5de5ff";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.ellipse(x+22,y+28,35,40,0,0,Math.PI*2);
+  ctx.stroke();
+ }
 }
 
-function drawObstacle(obstacle) {
-    const { x, y, w, h, type } = obstacle;
+function drawObstacle(o) {
+ const {x,y,w,h,type} = o;
 
-    if (type === "cactus") {
-        ctx.fillStyle = "#267f3b";
-        ctx.fillRect(x + w * 0.3, y, w * 0.4, h);
-        ctx.fillRect(x, y + h * 0.35, w * 0.35, 8);
-        ctx.fillRect(x, y + h * 0.2, 7, h * 0.3);
-        ctx.fillRect(x + w * 0.65, y + h * 0.5, w * 0.35, 8);
-        ctx.fillRect(x + w * 0.65, y + h * 0.35, 7, h * 0.3);
-    }
+ if (type==="cactus") {
+  ctx.fillStyle = "#267f3b";
+  ctx.fillRect(x+w*.3,y,w*.4,h);
+  ctx.fillRect(x,y+h*.35,w*.35,8);
+  ctx.fillRect(x,y+h*.2,7,h*.3);
+  ctx.fillRect(x+w*.65,y+h*.5,w*.35,8);
+  ctx.fillRect(x+w*.65,y+h*.35,7,h*.3);
 
-    if (type === "rock") {
-        ctx.fillStyle = "#747b83";
+ } else if (type==="rock") {
+  ctx.fillStyle = "#747b83";
+  ctx.beginPath();
+  ctx.moveTo(x,y+h);
+  ctx.lineTo(x+5,y+h*.35);
+  ctx.lineTo(x+w*.35,y);
+  ctx.lineTo(x+w*.75,y+5);
+  ctx.lineTo(x+w,y+h);
+  ctx.closePath();
+  ctx.fill();
 
-        ctx.beginPath();
-        ctx.moveTo(x, y + h);
-        ctx.lineTo(x + 5, y + h * 0.35);
-        ctx.lineTo(x + w * 0.35, y);
-        ctx.lineTo(x + w * 0.75, y + 5);
-        ctx.lineTo(x + w, y + h);
-        ctx.closePath();
-        ctx.fill();
-    }
+ } else if (type==="raptor") {
+  ctx.fillStyle = "#c85b36";
+  ctx.fillRect(x+5,y+15,34,22);
+  ctx.fillRect(x+27,y+4,20,15);
+  ctx.fillRect(x+42,y+12,11,7);
 
-    if (type === "raptor") {
-        ctx.fillStyle = "#c85b36";
-        ctx.fillRect(x + 5, y + 15, 34, 22);
-        ctx.fillRect(x + 27, y + 4, 20, 15);
-        ctx.fillRect(x + 42, y + 12, 11, 7);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(x+38,y+7,5,5);
 
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(x + 38, y + 7, 5, 5);
+  ctx.fillStyle = "#73311f";
+  ctx.fillRect(x+10,y+34,7,8);
+  ctx.fillRect(x+30,y+34,7,8);
 
-        ctx.fillStyle = "#73311f";
-        ctx.fillRect(x + 10, y + 34, 7, 8);
-        ctx.fillRect(x + 30, y + 34, 7, 8);
+ } else {
+  ctx.fillStyle = "#754bb7";
+  ctx.beginPath();
+  ctx.moveTo(x+20,y+12);
+  ctx.lineTo(x,y);
+  ctx.lineTo(x+8,y+18);
+  ctx.lineTo(x+20,y+15);
+  ctx.lineTo(x+40,y+28);
+  ctx.lineTo(x+31,y+12);
+  ctx.closePath();
+  ctx.fill();
 
-        ctx.beginPath();
-        ctx.moveTo(x + 5, y + 20);
-        ctx.lineTo(x - 9, y + 13);
-        ctx.lineTo(x + 8, y + 29);
-        ctx.fill();
-    }
+  ctx.fillRect(x+18,y+8,26,8);
 
-    if (type === "ptero") {
-        ctx.fillStyle = "#754bb7";
-
-        ctx.beginPath();
-        ctx.moveTo(x + 20, y + 12);
-        ctx.lineTo(x, y);
-        ctx.lineTo(x + 8, y + 18);
-        ctx.lineTo(x + 20, y + 15);
-        ctx.lineTo(x + 40, y + 28);
-        ctx.lineTo(x + 31, y + 12);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillRect(x + 18, y + 8, 26, 8);
-
-        ctx.fillStyle = "#ffcf56";
-        ctx.fillRect(x + 39, y + 10, 9, 4);
-    }
+  ctx.fillStyle = "#ffcf56";
+  ctx.fillRect(x+39,y+10,9,4);
+ }
 }
 
 function drawBoss() {
-    if (!boss) return;
+ if (!boss) return;
 
-    const x = boss.x;
-    const y = boss.y;
+ const x = boss.x;
+ const y = boss.y;
+ const spec = bossSpecs[bossIndex];
 
-    // Chifres.
-    ctx.fillStyle = "#762e32";
+ ctx.fillStyle = spec.color;
 
-    ctx.beginPath();
-    ctx.moveTo(x + 25, y + 30);
-    ctx.lineTo(x + 8, y - 5);
-    ctx.lineTo(x + 42, y + 15);
-    ctx.fill();
+ ctx.beginPath();
+ ctx.moveTo(x+25,y+30);
+ ctx.lineTo(x+8,y-5);
+ ctx.lineTo(x+42,y+15);
+ ctx.fill();
 
-    ctx.beginPath();
-    ctx.moveTo(x + 105, y + 25);
-    ctx.lineTo(x + 130, y - 7);
-    ctx.lineTo(x + 125, y + 40);
-    ctx.fill();
+ ctx.beginPath();
+ ctx.moveTo(x+105,y+25);
+ ctx.lineTo(x+130,y-7);
+ ctx.lineTo(x+125,y+40);
+ ctx.fill();
 
-    // Corpo.
-    ctx.fillStyle = "#a93240";
-    ctx.fillRect(x + 10, y + 30, 120, 80);
+ ctx.fillRect(x+10,y+30,120,80);
+ ctx.fillRect(x+65,y+5,75,55);
+ ctx.fillRect(x+105,y+38,45,25);
 
-    // Cabeça.
-    ctx.fillStyle = "#c74650";
-    ctx.fillRect(x + 65, y + 5, 75, 55);
-    ctx.fillRect(x + 105, y + 38, 45, 25);
+ ctx.fillStyle = "#fff";
+ ctx.fillRect(x+82,y+18,17,17);
+ ctx.fillRect(x+119,y+18,17,17);
 
-    // Olhos.
-    ctx.fillStyle = "#fff";
+ ctx.fillStyle = "#ff2929";
+ ctx.fillRect(x+91,y+23,7,9);
+ ctx.fillRect(x+128,y+23,7,9);
 
-    ctx.fillRect(x + 82, y + 18, 17, 17);
-    ctx.fillRect(x + 119, y + 18, 17, 17);
+ ctx.fillStyle = "#38131b";
+ ctx.fillRect(x+112,y+48,36,12);
 
-    ctx.fillStyle = "#ff2929";
+ ctx.fillStyle = "#fff";
 
-    ctx.fillRect(x + 91, y + 23, 7, 9);
-    ctx.fillRect(x + 128, y + 23, 7, 9);
+ for (let i=0;i<4;i++) {
+  ctx.beginPath();
+  ctx.moveTo(x+115+i*8,y+48);
+  ctx.lineTo(x+119+i*8,y+56);
+  ctx.lineTo(x+123+i*8,y+48);
+  ctx.fill();
+ }
 
-    // Boca.
-    ctx.fillStyle = "#38131b";
-    ctx.fillRect(x + 112, y + 48, 36, 12);
+ ctx.fillStyle = spec.color;
+ ctx.fillRect(x-5,y+50,25,15);
+ ctx.fillRect(x+100,y+65,25,15);
 
-    ctx.fillStyle = "#fff";
+ ctx.fillStyle = "#762e32";
+ ctx.fillRect(x+28,y+105,30,30);
+ ctx.fillRect(x+85,y+105,30,30);
 
-    for (let i = 0; i < 4; i++) {
-        ctx.beginPath();
-        ctx.moveTo(x + 115 + i * 8, y + 48);
-        ctx.lineTo(x + 119 + i * 8, y + 56);
-        ctx.lineTo(x + 123 + i * 8, y + 48);
-        ctx.fill();
-    }
+ // Placa com o nome do chefe.
+ ctx.fillStyle = "rgba(255,245,190,.96)";
+ ctx.strokeStyle = "#111";
+ ctx.lineWidth = 2;
+ ctx.beginPath();
+ ctx.roundRect(x+5,y-35,150,25,6);
+ ctx.fill();
+ ctx.stroke();
 
-    // Braços.
-    ctx.fillStyle = "#a93240";
-    ctx.fillRect(x - 5, y + 50, 25, 15);
-    ctx.fillRect(x + 100, y + 65, 25, 15);
-
-    // Pernas.
-    ctx.fillStyle = "#762e32";
-    ctx.fillRect(x + 28, y + 105, 30, 30);
-    ctx.fillRect(x + 85, y + 105, 30, 30);
-
-    // Espinhos.
-    ctx.fillStyle = "#6c2730";
-
-    for (let i = 0; i < 5; i++) {
-        ctx.beginPath();
-        ctx.moveTo(x + 20 + i * 21, y + 30);
-        ctx.lineTo(x + 30 + i * 21, y + 5);
-        ctx.lineTo(x + 40 + i * 21, y + 30);
-        ctx.fill();
-    }
-
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 17px Arial";
-    ctx.fillText("CHEFE", x + 52, y - 12);
+ ctx.fillStyle = "#000";
+ ctx.textAlign = "center";
+ ctx.font = "bold 14px Arial";
+ ctx.fillText(spec.name,x+80,y-18);
+ ctx.textAlign = "left";
 }
 
-function drawProjectiles() {
-    projectiles.forEach(bullet => {
-        ctx.fillStyle = "#ffda47";
-        ctx.fillRect(bullet.x, bullet.y, bullet.w, bullet.h);
+function drawShots() {
+ bullets.forEach(b => {
+  ctx.fillStyle = "#ffda47";
+  ctx.fillRect(b.x,b.y,b.w,b.h);
 
-        ctx.fillStyle = "#fff4b0";
-        ctx.fillRect(bullet.x + 3, bullet.y + 2, 7, 3);
-    });
+  ctx.fillStyle = "#fff4b0";
+  ctx.fillRect(b.x+3,b.y+2,7,3);
+ });
 
-    enemyProjectiles.forEach(bullet => {
-        ctx.fillStyle = "#ff5a36";
+ enemyBullets.forEach(b => {
+  if (b.type==="wave") {
+   ctx.fillStyle = bossIndex===2 ? "#b92bff" : "#ff5a36";
+   ctx.fillRect(b.x,b.y,b.w,b.h);
 
-        ctx.beginPath();
-        ctx.arc(
-            bullet.x + bullet.w / 2,
-            bullet.y + bullet.h / 2,
-            bullet.w / 2,
-            0,
-            Math.PI * 2
-        );
-        ctx.fill();
+   ctx.fillStyle = "#ffe17b";
+   ctx.fillRect(b.x+4,b.y+4,b.w-8,4);
 
-        ctx.fillStyle = "#ffcf52";
+  } else if (b.type==="meteor") {
+   ctx.fillStyle = "#8c39c9";
+   ctx.beginPath();
+   ctx.arc(b.x+b.w/2,b.y+b.h/2,b.w/2,0,Math.PI*2);
+   ctx.fill();
 
-        ctx.beginPath();
-        ctx.arc(
-            bullet.x + bullet.w / 2,
-            bullet.y + bullet.h / 2,
-            bullet.w / 4,
-            0,
-            Math.PI * 2
-        );
-        ctx.fill();
-    });
+   ctx.strokeStyle = "#ffb84d";
+   ctx.lineWidth = 4;
+   ctx.beginPath();
+   ctx.moveTo(b.x+b.w/2,b.y-10);
+   ctx.lineTo(b.x+b.w/2,b.y+5);
+   ctx.stroke();
+
+  } else {
+   ctx.fillStyle = bossIndex===2
+    ? "#d43bff"
+    : bossIndex===1
+     ? "#ff8b38"
+     : "#ff5a36";
+
+   ctx.beginPath();
+   ctx.arc(b.x+b.w/2,b.y+b.h/2,b.w/2,0,Math.PI*2);
+   ctx.fill();
+
+   ctx.fillStyle = "#ffcf52";
+   ctx.beginPath();
+   ctx.arc(b.x+b.w/2,b.y+b.h/2,b.w/4,0,Math.PI*2);
+   ctx.fill();
+  }
+ });
+}
+
+function drawCoins() {
+ coinItems.forEach(c => {
+  const squash = Math.max(0.25,Math.abs(Math.cos(c.spin)));
+
+  ctx.save();
+  ctx.translate(c.x,c.y);
+  ctx.scale(squash,1);
+
+  ctx.fillStyle = "#ffbd18";
+  ctx.beginPath();
+  ctx.ellipse(0,0,c.r,c.r*1.12,0,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#fff08a";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = "#9a5b00";
+  ctx.font = "bold 15px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("$",0,1);
+
+  ctx.restore();
+ });
 }
 
 function draw() {
-    drawBackground();
+ drawBackground();
+ drawCoins();
 
-    obstacles.forEach(drawObstacle);
+ obstacles.forEach(o => {
+  if (o.hp!==0) drawObstacle(o);
+ });
 
-    if (bossMode) {
-        drawBoss();
-    }
+ if (bossMode) drawBoss();
 
-    drawProjectiles();
-    drawPlayer();
+ drawShots();
+ drawPlayer();
 
-    if (!running && !gameOver) {
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+ if (!running && !gameOver) {
+  ctx.fillStyle = "rgba(0,0,0,.48)";
+  ctx.fillRect(0,0,W,H);
 
-        ctx.fillStyle = "#fff";
-        ctx.textAlign = "center";
-        ctx.font = "bold 34px Arial";
-        ctx.fillText("DINO RUSH", WIDTH / 2, 170);
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "center";
+  ctx.font = "bold 34px Arial";
+  ctx.fillText("DINO RUSH",W/2,170);
 
-        ctx.font = "20px Arial";
-        ctx.fillText(
-            "Clique em Iniciar jogo para começar",
-            WIDTH / 2,
-            210
-        );
+  ctx.font = "20px Arial";
+  ctx.fillText("Clique em Iniciar jogo para começar",W/2,210);
+  ctx.textAlign = "left";
+ }
 
-        ctx.textAlign = "left";
-    }
+ if (gameOver) {
+  ctx.fillStyle = "rgba(0,0,0,.62)";
+  ctx.fillRect(0,0,W,H);
 
-    if (gameOver) {
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "center";
+  ctx.font = "bold 38px Arial";
+  ctx.fillText(victory ? "VITÓRIA!" : "FIM DE JOGO",W/2,180);
 
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 38px Arial";
-
-        ctx.fillText(
-            boss && boss.hp <= 0 ? "VITÓRIA!" : "FIM DE JOGO",
-            WIDTH / 2,
-            180
-        );
-
-        ctx.font = "22px Arial";
-
-        ctx.fillText(
-            "Pontuação: " + Math.floor(score),
-            WIDTH / 2,
-            220
-        );
-
-        ctx.fillText(
-            "Clique em Reiniciar para jogar novamente",
-            WIDTH / 2,
-            260
-        );
-
-        ctx.textAlign = "left";
-    }
+  ctx.font = "22px Arial";
+  ctx.fillText("Pontuação: "+Math.floor(score),W/2,220);
+  ctx.fillText("Clique em Reiniciar para jogar novamente",W/2,260);
+  ctx.textAlign = "left";
+ }
 }
 
-function loop(timestamp) {
-    if (!running) return;
+function loop(t) {
+ if (!running) return;
 
-    if (!lastTime) lastTime = timestamp;
+ if (!lastTime) lastTime = t;
 
-    const dt = Math.min(timestamp - lastTime, 40);
-    lastTime = timestamp;
+ const dt = Math.min(t-lastTime,40);
+ lastTime = t;
 
-    update(dt);
-    draw();
+ update(dt);
+ draw();
 
-    if (running) {
-        requestAnimationFrame(loop);
-    }
+ if (running) requestAnimationFrame(loop);
 }
 
 // Teclado.
-document.addEventListener("keydown", event => {
-    if (event.code === "Space" || event.code === "ArrowUp") {
-        event.preventDefault();
-        jump();
-    }
+document.addEventListener("keydown",e => {
+ if (["Space","ArrowUp","ArrowDown"].includes(e.code)) {
+  e.preventDefault();
+ }
 
-    if (event.code === "ArrowDown") {
-        event.preventDefault();
+ if (e.code==="Space" || e.code==="ArrowUp") jump();
 
-        if (running && !bossMode && player.onGround) {
-            player.ducking = true;
-            player.h = 35;
-            player.y = GROUND - player.h;
-        }
-    }
+ if (
+  e.code==="ArrowDown" &&
+  running &&
+  !bossMode &&
+  player.onGround
+ ) {
+  player.ducking = true;
+  player.h = 35;
+  player.y = GROUND-player.h;
+ }
 
-    if (event.key.toLowerCase() === "x") {
-        shoot();
-    }
-
-    if (event.key.toLowerCase() === "s") {
-        useShield();
-    }
+ if (e.key.toLowerCase()==="x") shoot();
+ if (e.key.toLowerCase()==="s") useShield();
 });
 
-document.addEventListener("keyup", event => {
-    if (event.code === "ArrowDown") {
-        player.ducking = false;
-        player.h = 54;
+document.addEventListener("keyup",e => {
+ if (e.code==="ArrowDown") {
+  player.ducking = false;
+  player.h = 54;
 
-        if (player.y + player.h > GROUND) {
-            player.y = GROUND - player.h;
-        }
-    }
+  if (player.y+player.h>GROUND) {
+   player.y = GROUND-player.h;
+  }
+ }
 });
 
 // Botões.
-$("startBtn").addEventListener("click", startGame);
-$("jumpBtn").addEventListener("click", jump);
-$("shootBtn").addEventListener("click", shoot);
-$("shieldBtn").addEventListener("click", useShield);
-$("restartBtn").addEventListener("click", () => {
-    resetGame();
-    startGame();
+$("startBtn").addEventListener("click",startGame);
+$("jumpBtn").addEventListener("click",jump);
+$("shootBtn").addEventListener("click",shoot);
+$("shieldBtn").addEventListener("click",useShield);
+
+$("restartBtn").addEventListener("click",() => {
+ resetGame();
+ startGame();
 });
 
-$("buyWeapon").addEventListener("click", () => buyItem("weapon"));
-$("buyShield").addEventListener("click", () => buyItem("shield"));
-$("buyHealth").addEventListener("click", () => buyItem("health"));
-$("buyUpgrade").addEventListener("click", () => buyItem("upgrade"));
+$("buyWeapon").addEventListener("click",() => buy("weapon"));
+$("buyUpgrade").addEventListener("click",() => buy("upgrade"));
+$("buyShield").addEventListener("click",() => buy("shield"));
+$("buyHealth").addEventListener("click",() => buy("health"));
 
-// Suporte para celulares: tocar na tela para pular.
-canvas.addEventListener("pointerdown", event => {
-    if (!running || gameOver) return;
+// Toque na tela: lado esquerdo pula, lado direito atira.
+canvas.addEventListener("pointerdown",e => {
+ if (!running || gameOver) return;
 
-    if (event.clientX < canvas.getBoundingClientRect().left +
-        canvas.getBoundingClientRect().width * 0.55) {
-        jump();
-    } else {
-        shoot();
-    }
+ const r = canvas.getBoundingClientRect();
+ const x = e.clientX-r.left;
+
+ if (x < r.width*.55) jump();
+ else shoot();
 });
 
-// Inicialização.
 resetGame();
 </script>
-
 </body>
 </html>
+
 
 
