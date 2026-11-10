@@ -24,6 +24,9 @@ button{background:#71e58a;color:#10251a;border:0;border-radius:7px;padding:10px 
 button:hover{background:#a0ffb1}
 button:disabled{opacity:.5;cursor:not-allowed}
 #shop{background:#203440;border-radius:10px;padding:12px;margin-top:12px}
+#shopInfo{background:#142630;border-radius:8px;padding:10px;margin-top:10px}
+.shopline button{min-width:190px}
+@media(max-width:600px){.shopline button{width:100%;margin:3px 0}}
 #message{min-height:26px;color:#ffe37c;font-weight:bold;margin:10px}
 .small{font-size:13px;color:#d4e2e8;line-height:1.6}
 .shopline{display:flex;justify-content:center;flex-wrap:wrap;gap:4px}
@@ -66,14 +69,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <section id="shop">
  <h2>🛒 Loja de melhorias</h2>
- <p>Você começa com uma pistola fraca gratuita. Colete as moedas douradas que aparecem no mapa.</p>
+ <p>Você começa com 0 moedas e uma pistola inicial gratuita. Colete os grupos de moedas douradas no caminho para comprar melhorias.</p>
  <div class="shopline">
   <button id="buyWeapon">🔫 Arma melhor — 10 moedas</button>
-  <button id="buyUpgrade">⚡ Melhorar arma — 15 moedas</button>
-  <button id="buyShield">🛡 Comprar escudo — 8 moedas</button>
+  <button id="buyUpgrade">⚡ Melhorar arma — preço aumenta por nível</button>
+  <button id="buyShield">🛡 Desbloquear escudo permanente — 8 moedas</button>
   <button id="buyHealth">❤️ Recuperar vida — 6 moedas</button>
  </div>
- <p id="shopInfo" class="small">Pistola inicial: dano baixo, mas você já começa armado.</p>
+ <p id="shopInfo" class="small">Pistola inicial: dano baixo. Compre o Blaster e evolua até o nível 8.</p>
 </section>
 
 <p class="small">
@@ -152,10 +155,42 @@ let bossAttackCount = 0;
 
 let playerHp = MAX_HP;
 let playerHitUntil = 0;
-let shieldCharges = 0;
+let shieldOwned = false;
 let shieldUntil = 0;
+let shieldReadyAt = 0;
+const SHIELD_DURATION = 5000;
+const SHIELD_COOLDOWN = 13000;
 
 let weaponLevel = 0;
+
+// Guarda moedas e melhorias entre partidas no próprio navegador.
+const PROGRESS_KEY = "dinoRushProgressV1";
+function saveProgress() {
+ try {
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify({
+   coins: coins,
+   weaponLevel: weaponLevel,
+   shieldOwned: shieldOwned
+  }));
+ } catch (err) {
+  // O jogo continua funcionando mesmo se o navegador bloquear o armazenamento.
+ }
+}
+function loadProgress() {
+ try {
+  const data = JSON.parse(localStorage.getItem(PROGRESS_KEY) || "null");
+  if (data) {
+   coins = Math.max(0, Math.floor(Number(data.coins) || 0));
+   weaponLevel = Math.max(0, Math.min(5, Math.floor(Number(data.weaponLevel) || 0)));
+   // Compatibilidade com progresso salvo na versão anterior.
+   shieldOwned = Boolean(data.shieldOwned) || Number(data.shieldCharges || 0) > 0;
+  }
+ } catch (err) {
+  coins = 0;
+  weaponLevel = 0;
+  shieldOwned = false;
+ }
+}
 
 let obstacles = [];
 let bullets = [];
@@ -184,7 +219,8 @@ function weaponName() {
 }
 
 function weaponDamage() {
- return weaponLevel === 0 ? 7 : 12 + (weaponLevel-1)*8;
+ // A pistola inicial é fraca; cada nível do Blaster aumenta bastante o dano.
+ return weaponLevel === 0 ? 7 : 12 + (weaponLevel-1)*10;
 }
 
 function updateHUD() {
@@ -211,7 +247,14 @@ function updateHUD() {
 
  $("shopInfo").textContent =
   "Arma atual: "+weaponName()+
-  " (dano "+weaponDamage()+"). Escudos: "+shieldCharges+".";
+  " (nível "+weaponLevel+"/8, dano "+weaponDamage()+"). Próxima melhoria: "+
+  (weaponLevel === 0 ? "compre o Blaster por 10 moedas" :
+   weaponLevel >= 8 ? "nível máximo" : (15+(weaponLevel-1)*10)+" moedas")+
+  ". Escudo: "+
+  (shieldOwned ? (performance.now() < shieldUntil ? "ATIVO" :
+   (performance.now() < shieldReadyAt ? "recarregando" : "pronto")) : "não comprado")+
+  (shieldOwned && performance.now() < shieldReadyAt
+   ? " ("+Math.ceil((shieldReadyAt-performance.now())/1000)+"s)" : "")+".";
 }
 
 function resetGame() {
@@ -221,7 +264,7 @@ function resetGame() {
  bossMode = false;
 
  score = 0;
- coins = 0;
+ // Moedas, arma e escudos ficam guardados entre partidas.
  speed = 5;
  frame = 0;
  lastTime = 0;
@@ -235,10 +278,8 @@ function resetGame() {
 
  playerHp = MAX_HP;
  playerHitUntil = 0;
- shieldCharges = 0;
  shieldUntil = 0;
-
- weaponLevel = 0;
+ shieldReadyAt = 0;
 
  obstacles = [];
  bullets = [];
@@ -292,9 +333,9 @@ function shoot() {
  bullets.push({
   x:player.x+player.w,
   y:player.y+24,
-  w:15,
-  h:7,
-  vx:10,
+  w:15 + Math.min(weaponLevel,8)*1.5,
+  h:7 + Math.min(weaponLevel,8)*0.5,
+  vx:10 + Math.min(weaponLevel,8)*0.45,
   damage:weaponDamage(),
   hit:false
  });
@@ -303,14 +344,21 @@ function shoot() {
 function useShield() {
  if (!running || gameOver) return;
 
- if (shieldCharges <= 0) {
-  msg("Você não tem escudo. Compre um por 8 moedas na loja.");
+ if (!shieldOwned) {
+  msg("Você ainda não comprou o escudo. Desbloqueie-o na loja por 8 moedas.");
   return;
  }
 
- shieldCharges--;
- shieldUntil = performance.now()+4000;
- msg("Escudo ativado por 4 segundos!");
+ const now = performance.now();
+ if (now < shieldReadyAt) {
+  msg("🛡 Escudo recarregando! Aguarde "+Math.ceil((shieldReadyAt-now)/1000)+" segundos.");
+  return;
+ }
+
+ shieldUntil = now + SHIELD_DURATION;
+ shieldReadyAt = now + SHIELD_COOLDOWN;
+ saveProgress();
+ msg("🛡 Escudo ativado por 5 segundos! Recarga: 13 segundos.");
  updateHUD();
 }
 
@@ -363,6 +411,7 @@ function defeatBoss() {
  const defeatedIndex = bossIndex;
 
  coins += spec.reward;
+ saveProgress();
  bossMode = false;
  boss = null;
  bullets = [];
@@ -398,77 +447,77 @@ function endGame(won) {
 }
 
 function buy(item) {
- if (gameOver) {
-  msg("Reinicie a partida para usar a loja.");
+ const prices = {weapon:10, shield:8, health:6};
+ const price = item === "upgrade"
+  ? 15 + Math.max(0,weaponLevel-1)*10
+  : prices[item];
+
+ if (item === "weapon" && weaponLevel >= 1) {
+  msg("O Blaster já foi comprado. Use Melhorar arma para evoluí-lo.");
+  return;
+ }
+ if (item === "upgrade" && weaponLevel === 0) {
+  msg("Compre primeiro o Blaster por 10 moedas.");
+  return;
+ }
+ if (item === "upgrade" && weaponLevel >= 8) {
+  msg("Sua arma já está no nível máximo (nível 8)!");
+  return;
+ }
+ if (item === "shield" && shieldOwned) {
+  msg("O escudo já é seu permanentemente! Ele recarrega a cada 13 segundos.");
+  return;
+ }
+ if (item === "health" && playerHp >= MAX_HP) {
+  msg("Sua vida já está cheia!");
+  return;
+ }
+ if (coins < price) {
+  msg("Moedas insuficientes: você tem "+coins+" e precisa de "+price+". Colete as moedas douradas no mapa.");
   return;
  }
 
+ coins -= price;
  if (item === "weapon") {
-  if (weaponLevel >= 1) {
-   msg("Você já comprou o Blaster. Use Melhorar arma para aumentar o dano.");
-   return;
-  }
-
-  if (coins < 10) {
-   msg("Faltam moedas! Pegue as moedas douradas no mapa.");
-   return;
-  }
-
-  coins -= 10;
   weaponLevel = 1;
-  msg("Blaster comprado! Seu dano aumentou.");
-
+  msg("Blaster comprado! Dano aumentado para "+weaponDamage()+".");
  } else if (item === "upgrade") {
-  if (coins < 15) {
-   msg("Você precisa de 15 moedas para melhorar a arma.");
-   return;
-  }
-
-  if (weaponLevel >= 5) {
-   msg("Sua arma já está no nível máximo!");
-   return;
-  }
-
-  coins -= 15;
   weaponLevel++;
-  msg("Arma melhorada para o nível "+weaponLevel+"!");
-
+  msg("⚡ Blaster nível "+weaponLevel+"! Dano aumentado para "+weaponDamage()+". Próxima melhoria: "+(weaponLevel < 8 ? (15+(weaponLevel-1)*10)+" moedas." : "nível máximo atingido!"));
  } else if (item === "shield") {
-  if (coins < 8) {
-   msg("Você precisa de 8 moedas para comprar escudo.");
-   return;
-  }
-
-  coins -= 8;
-  shieldCharges++;
-  msg("Escudo comprado! Use S ou o botão de escudo.");
-
+  shieldOwned = true;
+  shieldReadyAt = 0;
+  msg("🛡 Escudo desbloqueado permanentemente! Use S; recarga de 13 segundos.");
  } else if (item === "health") {
-  if (coins < 6) {
-   msg("Você precisa de 6 moedas para recuperar vida.");
-   return;
-  }
-
-  if (playerHp >= MAX_HP) {
-   msg("Sua vida já está cheia!");
-   return;
-  }
-
-  coins -= 6;
   playerHp = Math.min(MAX_HP,playerHp+35);
-  msg("Vida recuperada!");
+  msg("Vida recuperada! Agora: "+Math.ceil(playerHp)+"/"+MAX_HP+".");
  }
-
+ saveProgress();
  updateHUD();
 }
-
 function spawnObstacle() {
- const types = ["cactus","rock","raptor","ptero"];
- const type = types[Math.floor(Math.random()*types.length)];
+ // A variedade muda com a velocidade, sem criar obstáculos impossíveis em sequência.
+ const roll = Math.random();
+ let type;
+ if (speed < 7) {
+  type = roll < 0.34 ? "cactus" : roll < 0.58 ? "rock" : roll < 0.82 ? "raptor" : "ptero";
+ } else if (speed < 9.5) {
+  type = roll < 0.28 ? "cactus" : roll < 0.48 ? "rock" : roll < 0.77 ? "raptor" : "ptero";
+ } else {
+  type = roll < 0.22 ? "cactus" : roll < 0.40 ? "rock" : roll < 0.74 ? "raptor" : "ptero";
+ }
+
+ let obstacleX = W+25;
+ // Evita colocar um obstáculo colado em um grupo de moedas que ainda está à frente.
+ for (const c of coinItems) {
+  if (c.x+12+230 > obstacleX && c.x < W+1100) {
+   obstacleX = c.x+12+230;
+  }
+ }
 
  const o = {
   type,
-  x:W+25,
+  x:obstacleX,
   y:GROUND-40,
   w:36,
   h:40,
@@ -505,15 +554,28 @@ function spawnObstacle() {
 
 function spawnCoin() {
  const yChoices = [GROUND-42,GROUND-82,GROUND-125];
+ const y = Math.random() < 0.62
+  ? yChoices[0]
+  : yChoices[1+Math.floor(Math.random()*2)];
 
- coinItems.push({
-  x:W+20,
-  y:yChoices[Math.floor(Math.random()*yChoices.length)],
-  r:12,
-  spin:Math.random()*Math.PI*2
- });
+ // Mantém pelo menos 230 px entre o grupo de moedas e obstáculos próximos.
+ let startX = W+20;
+ for (const o of obstacles) {
+  if (o.x+o.w+230 > startX && o.x < W+1100) {
+   startX = o.x+o.w+230;
+  }
+ }
+
+ // Três moedas por grupo, com espaço suficiente para o obstáculo anterior.
+ for (let i=0;i<3;i++) {
+  coinItems.push({
+   x:startX+i*34,
+   y:y,
+   r:12,
+   spin:Math.random()*Math.PI*2
+  });
+ }
 }
-
 function collide(a,b) {
  return a.x < b.x+b.w &&
         a.x+a.w > b.x &&
@@ -546,12 +608,14 @@ function update(dt) {
 
    if (spawnTimer <= 0) {
     spawnObstacle();
-    spawnTimer = Math.max(30,68+Math.random()*48-score/100);
+    const obstacleGap = 950+Math.random()*350;
+    spawnTimer = obstacleGap/speed;
    }
 
    if (coinSpawnTimer <= 0) {
     spawnCoin();
-    coinSpawnTimer = Math.max(32,75+Math.random()*45-score/100);
+    const coinGap = 900+Math.random()*300;
+    coinSpawnTimer = coinGap/speed;
    }
 
    obstacles.forEach(o => { o.x -= speed*step; });
@@ -580,6 +644,7 @@ function update(dt) {
     if (collide(playerBox,coinBox)) {
      coins += 1;
      score += 5;
+     saveProgress();
      msg("🪙 Moeda coletada! +1 moeda");
      return false;
     }
@@ -795,7 +860,13 @@ function update(dt) {
 
   for (const o of obstacles) {
    if (o.hp!==0 && collide(p,o)) {
-    endGame(false);
+    // O escudo também protege contra colisões com obstáculos do caminho.
+    if (performance.now() < shieldUntil) {
+     o.hp = 0;
+     msg("🛡 Escudo bloqueou o obstáculo!");
+    } else {
+     endGame(false);
+    }
     break;
    }
   }
@@ -887,9 +958,11 @@ function drawPlayer() {
 
  if (performance.now()<shieldUntil) {
   ctx.strokeStyle = "#5de5ff";
-  ctx.lineWidth = 4;
+  ctx.fillStyle = "rgba(93,229,255,.16)";
+  ctx.lineWidth = 5;
   ctx.beginPath();
-  ctx.ellipse(x+22,y+28,35,40,0,0,Math.PI*2);
+  ctx.ellipse(x+22,y+28,39,44,0,0,Math.PI*2);
+  ctx.fill();
   ctx.stroke();
  }
 }
@@ -1203,10 +1276,10 @@ $("restartBtn").addEventListener("click",() => {
  startGame();
 });
 
-$("buyWeapon").addEventListener("click",() => buy("weapon"));
-$("buyUpgrade").addEventListener("click",() => buy("upgrade"));
-$("buyShield").addEventListener("click",() => buy("shield"));
-$("buyHealth").addEventListener("click",() => buy("health"));
+$("buyWeapon").addEventListener("click",e => { e.preventDefault(); buy("weapon"); });
+$("buyUpgrade").addEventListener("click",e => { e.preventDefault(); buy("upgrade"); });
+$("buyShield").addEventListener("click",e => { e.preventDefault(); buy("shield"); });
+$("buyHealth").addEventListener("click",e => { e.preventDefault(); buy("health"); });
 
 // CONTROLES PARA CELULAR
 canvas.addEventListener("pointerdown",e => {
@@ -1219,6 +1292,7 @@ canvas.addEventListener("pointerdown",e => {
  else shoot();
 });
 
+loadProgress();
 resetGame();
 </script>
 </body>
